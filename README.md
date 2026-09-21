@@ -23,6 +23,10 @@
 
 ## 项目状态
 
-- 当前阶段：设计评审
-- 实施状态：未开始；等待设计 Review 和 JDK 21 环境就绪
+- 当前阶段：P1 Durable Core 实现与集成验证
+- 实施状态：状态机、Outbox、Reconcile、Retry、结构化 Runtime Context、Checkpoint 与本地 Coding Job 已完成；等待 MySQL/Flyway 真正启动及故障注入验收
 - 项目治理信息见 [STATE.md](STATE.md)、[DECISIONS.md](DECISIONS.md)、[TASKS.md](TASKS.md)
+
+## 本机集成验证
+
+使用隔离 MySQL、Flyway 与 Spring Boot 完成端到端验证的步骤见：[本机集成验收手册](docs/experiments/local-integration-runbook.md)。

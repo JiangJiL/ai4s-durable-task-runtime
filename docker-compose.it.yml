@@ -1,0 +1,15 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: ai4s-runtime-it-mysql
+    environment:
+      # 仅供本机临时集成测试；生产与开发环境应使用受保护的密码注入。
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: ai4s_durable_runtime_it
+    ports:
+      - "127.0.0.1:3307:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
