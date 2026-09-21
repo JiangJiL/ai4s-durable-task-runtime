@@ -21,10 +21,14 @@
 
 详见 [设计文档](docs/superpowers/specs/2026-09-21-durable-task-runtime-design.md)。
 
+## 架构图
+
+OpenClaw 与 Runtime 的职责边界、Agent Step 生命周期、异步 Job 的持久化与恢复流程见：[架构总览](docs/architecture/architecture-overview.md)。
+
 ## 项目状态
 
 - 当前阶段：P1 Durable Core 实现与集成验证
-- 实施状态：状态机、Outbox、Reconcile、Retry、结构化 Runtime Context、Checkpoint 与本地 Coding Job 已完成；等待 MySQL/Flyway 真正启动及故障注入验收
+- 实施状态：状态机、Outbox、Reconcile、Retry、结构化 Runtime Context、Checkpoint、本地 Coding Job、MySQL/Flyway 与 Runtime 重启恢复验证已完成
 - 项目治理信息见 [STATE.md](STATE.md)、[DECISIONS.md](DECISIONS.md)、[TASKS.md](TASKS.md)
 
 ## 本机集成验证
