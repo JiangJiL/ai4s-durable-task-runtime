@@ -42,4 +42,22 @@ public record ExternalJob(
         return new ExternalJob(id, taskStepId, provider, submittedExternalJobId, idempotencyKey,
                 ExternalJobStatus.SUBMITTED, request, createdAt, at);
     }
+
+    /** Applies a provider-observed status without permitting impossible rewinds. */
+    public ExternalJob reconcileTo(ExternalJobStatus observedStatus, Instant at) {
+        Objects.requireNonNull(observedStatus, "observedStatus is required");
+        if (status == observedStatus) {
+            return this;
+        }
+        if (status == ExternalJobStatus.SUBMITTING || status == ExternalJobStatus.SUCCEEDED
+                || status == ExternalJobStatus.FAILED || status == ExternalJobStatus.CANCELLED
+                || status == ExternalJobStatus.LOST) {
+            throw new IllegalStateException("Cannot reconcile " + status + " job: " + id);
+        }
+        if (observedStatus == ExternalJobStatus.SUBMITTING || observedStatus == ExternalJobStatus.SUBMITTED) {
+            throw new IllegalStateException("Provider status cannot rewind to " + observedStatus);
+        }
+        return new ExternalJob(id, taskStepId, provider, externalJobId, idempotencyKey, observedStatus,
+                request, createdAt, at);
+    }
 }

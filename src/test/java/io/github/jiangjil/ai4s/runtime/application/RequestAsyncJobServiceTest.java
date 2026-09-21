@@ -83,7 +83,9 @@ class RequestAsyncJobServiceTest {
         private ExternalJob job;
         @Override public void insert(ExternalJob job) { this.job = job; }
         @Override public Optional<ExternalJob> findById(UUID jobId) { return Optional.ofNullable(job); }
+        @Override public List<ExternalJob> findActive(int limit) { return job == null ? List.of() : List.of(job); }
         @Override public void markSubmitted(ExternalJob job) { this.job = job; }
+        @Override public void update(ExternalJob job) { this.job = job; }
     }
 
     private static final class CapturingOutboxStore implements OutboxStore {

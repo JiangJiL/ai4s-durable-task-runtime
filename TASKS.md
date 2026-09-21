@@ -17,7 +17,7 @@
 - [x] 实现创建 Task 的应用服务
 - [x] 实现 Task/Step/事件 JDBC 仓储
 - [x] 实现读取和启动 Task 的应用服务
-- [ ] 实现 Job 调度和 Step 推进应用服务
+- [x] 实现 Job 调度和线性 Step 推进应用服务
 - [x] 编写状态迁移单元测试
 
 ## P2：异步 Job 与恢复
@@ -26,7 +26,7 @@
 - [x] 实现 Outbox / 提交意图 / 幂等键（领域与应用层）
 - [x] 实现 External Job / Outbox JDBC 适配器与投递 worker
 - [ ] 实现 Job 回调入口及去重
-- [ ] 实现周期性 Reconciler
+- [x] 实现周期性 Reconciler（应用层核心；Spring 定时装配待接入）
 - [ ] 实现 Retry Policy 与失败分类
 
 ## P3：OpenClaw 集成与实验

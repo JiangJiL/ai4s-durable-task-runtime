@@ -39,4 +39,13 @@ public record Task(
     public Task recordActivity(Instant at) {
         return new Task(id, goal, status, currentStepId, version + 1, createdAt, at);
     }
+
+    /** Keeps the task running while deterministically designating its next Step. */
+    public Task advanceTo(UUID nextStepId, Instant at) {
+        Objects.requireNonNull(nextStepId, "nextStepId is required");
+        if (status != TaskStatus.RUNNING) {
+            throw new IllegalStateException("Only a running task can advance: " + id);
+        }
+        return new Task(id, goal, status, nextStepId, version + 1, createdAt, at);
+    }
 }

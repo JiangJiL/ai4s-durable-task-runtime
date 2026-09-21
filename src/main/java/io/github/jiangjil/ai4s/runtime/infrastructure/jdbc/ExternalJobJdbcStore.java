@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,6 +27,13 @@ public final class ExternalJobJdbcStore implements ExternalJobStore {
             """;
     private static final String MARK_SUBMITTED = """
             UPDATE external_job SET external_job_id = ?, status = ?, updated_at = ? WHERE id = ?
+            """;
+    private static final String FIND_ACTIVE = """
+            SELECT id, task_step_id, provider, external_job_id, idempotency_key, status, request_json, created_at, updated_at
+            FROM external_job WHERE status IN ('SUBMITTED', 'RUNNING') ORDER BY updated_at LIMIT ?
+            """;
+    private static final String UPDATE_STATUS = """
+            UPDATE external_job SET status = ?, updated_at = ? WHERE id = ?
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -56,6 +64,25 @@ public final class ExternalJobJdbcStore implements ExternalJobStore {
     @Override
     public void markSubmitted(ExternalJob job) {
         jdbcTemplate.update(MARK_SUBMITTED, job.externalJobId(), job.status().name(), Timestamp.from(job.updatedAt()), job.id().toString());
+    }
+
+    @Override
+    public List<ExternalJob> findActive(int limit) {
+        return jdbcTemplate.query(FIND_ACTIVE, (resultSet, rowNumber) -> map(resultSet), limit);
+    }
+
+    @Override
+    public void update(ExternalJob job) {
+        jdbcTemplate.update(UPDATE_STATUS, job.status().name(), Timestamp.from(job.updatedAt()), job.id().toString());
+    }
+
+    private ExternalJob map(java.sql.ResultSet resultSet) throws java.sql.SQLException {
+        return new ExternalJob(
+                UUID.fromString(resultSet.getString("id")), UUID.fromString(resultSet.getString("task_step_id")),
+                resultSet.getString("provider"), resultSet.getString("external_job_id"), resultSet.getString("idempotency_key"),
+                io.github.jiangjil.ai4s.runtime.domain.ExternalJobStatus.valueOf(resultSet.getString("status")),
+                deserialize(resultSet.getString("request_json")), resultSet.getTimestamp("created_at").toInstant(),
+                resultSet.getTimestamp("updated_at").toInstant());
     }
 
     private String serialize(Object value) {

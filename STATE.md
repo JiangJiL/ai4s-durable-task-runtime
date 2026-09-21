@@ -18,15 +18,16 @@
 - 实现 Task 启动用例：乐观锁保护 `CREATED → RUNNING`，首个 Step 确定性进入 `READY`。
 - 实现异步 Job 提交意图：在外部调用前原子持久化 `DISPATCHING` Step、External Job、Outbox 与事件。
 - 实现 External Job / Outbox 的 JDBC 适配器和 at-least-once Outbox Worker，将成功提交后的 Step 推进到 `WAITING_EXTERNAL`。
+- 实现基于外部事实的 Job Reconciler：扫描 `SUBMITTED/RUNNING` Job，成功时推进下一个线性 Step 或完成 Task，终态失败时确定性标记失败。
 
 ## 未开始
 
 - MySQL 实例准备（可使用 Docker，后续实施时处理）。
-- Task 推进应用服务、异步 Job、Reconciler、MySQL 集成验证与故障注入实验。
+- Retry Policy、Local Coding Job Adapter、MySQL 集成验证与故障注入实验。
 
 ## 下一步
 
-1. 实现 Reconciler 与 Job 状态驱动的 Step 推进。
+1. 实现 Retry Policy 与失败分类，将可恢复失败推进到 `RETRY_WAIT`。
 2. 通过安全注入连接 MySQL，验证 Flyway schema 与事务语义。
 3. 实现 Local Coding Job Adapter 和故障注入测试。
 

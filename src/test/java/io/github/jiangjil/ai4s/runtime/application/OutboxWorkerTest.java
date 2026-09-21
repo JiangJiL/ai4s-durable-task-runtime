@@ -76,7 +76,9 @@ class OutboxWorkerTest {
         private InMemoryExternalJobStore(ExternalJob job) { this.job = job; }
         @Override public void insert(ExternalJob job) { this.job = job; }
         @Override public Optional<ExternalJob> findById(UUID jobId) { return Optional.of(job); }
+        @Override public List<ExternalJob> findActive(int limit) { return List.of(job); }
         @Override public void markSubmitted(ExternalJob job) { this.job = job; }
+        @Override public void update(ExternalJob job) { this.job = job; }
     }
 
     private static final class InMemoryOutboxStore implements OutboxStore {
