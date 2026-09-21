@@ -16,6 +16,7 @@
 - 实现 Task 创建用例：事务边界内创建 Task、初始 Step 和 `TASK_CREATED` 追加事件。
 - 实现 MySQL JDBC 的 Task/Step 与 append-only Event 持久化适配器，以及 Spring 事务适配器。
 - 实现 Task 启动用例：乐观锁保护 `CREATED → RUNNING`，首个 Step 确定性进入 `READY`。
+- 实现异步 Job 提交意图：在外部调用前原子持久化 `DISPATCHING` Step、External Job、Outbox 与事件。
 
 ## 未开始
 
@@ -24,7 +25,7 @@
 
 ## 下一步
 
-1. 实现 `READY → DISPATCHING → WAITING_EXTERNAL` 的异步 Job 提交意图。
+1. 实现 External Job 和 Outbox 的 JDBC 适配器及投递 worker。
 2. 通过安全注入连接 MySQL，验证 Flyway schema 与事务语义。
 3. 实现 Reconciler 与 Job 状态驱动的 Step 推进。
 

@@ -41,4 +41,13 @@ public record TaskStep(
         RuntimeStateMachine.requireStepTransition(status, nextStatus);
         return new TaskStep(id, taskId, ordinal, type, name, nextStatus, attempt, maxAttempts, resumeMode, createdAt, at);
     }
+
+    public TaskStep dispatch(Instant at) {
+        if (attempt >= maxAttempts) {
+            throw new IllegalStateException("No attempt remaining for step: " + id);
+        }
+        RuntimeStateMachine.requireStepTransition(status, StepStatus.DISPATCHING);
+        return new TaskStep(id, taskId, ordinal, type, name, StepStatus.DISPATCHING, attempt + 1, maxAttempts,
+                resumeMode, createdAt, at);
+    }
 }

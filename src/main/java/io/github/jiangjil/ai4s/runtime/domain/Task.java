@@ -34,4 +34,9 @@ public record Task(
         RuntimeStateMachine.requireTaskTransition(status, TaskStatus.RUNNING);
         return new Task(id, goal, TaskStatus.RUNNING, firstStepId, version + 1, createdAt, at);
     }
+
+    /** Advances the aggregate version for a stateful child change without changing Task status. */
+    public Task recordActivity(Instant at) {
+        return new Task(id, goal, status, currentStepId, version + 1, createdAt, at);
+    }
 }
