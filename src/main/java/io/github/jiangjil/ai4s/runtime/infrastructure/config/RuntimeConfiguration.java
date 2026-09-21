@@ -3,6 +3,7 @@ package io.github.jiangjil.ai4s.runtime.infrastructure.config;
 import io.github.jiangjil.ai4s.runtime.application.ExponentialRetryPolicy;
 import io.github.jiangjil.ai4s.runtime.application.GetTaskRuntimeStateService;
 import io.github.jiangjil.ai4s.runtime.application.RuntimeContextBuilder;
+import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointService;
 import io.github.jiangjil.ai4s.runtime.application.ExternalJobCallbackService;
 import io.github.jiangjil.ai4s.runtime.application.JobReconciler;
 import io.github.jiangjil.ai4s.runtime.application.OutboxWorker;
@@ -12,6 +13,7 @@ import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobService;
 import io.github.jiangjil.ai4s.runtime.application.RetryPolicy;
 import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
 import io.github.jiangjil.ai4s.runtime.application.port.ExternalJobAdapter;
+import io.github.jiangjil.ai4s.runtime.application.port.CheckpointStore;
 import io.github.jiangjil.ai4s.runtime.application.port.ExternalJobStore;
 import io.github.jiangjil.ai4s.runtime.application.port.OutboxStore;
 import io.github.jiangjil.ai4s.runtime.application.port.RuntimeTransaction;
@@ -85,6 +87,14 @@ public class RuntimeConfiguration {
                                                   RuntimeTransaction transaction, Clock runtimeClock) {
         return new RequestAsyncJobService(taskStore, externalJobStore, outboxStore, eventStore,
                 transaction, runtimeClock);
+    }
+
+    /** 检查点索引与 Step 最新引用必须在同一 Runtime 事务中写入。 */
+    @Bean
+    SaveCheckpointService saveCheckpointService(TaskStore taskStore, CheckpointStore checkpointStore,
+                                                TaskEventStore eventStore, RuntimeTransaction transaction,
+                                                Clock runtimeClock) {
+        return new SaveCheckpointService(taskStore, checkpointStore, eventStore, transaction, runtimeClock);
     }
 
     @Bean

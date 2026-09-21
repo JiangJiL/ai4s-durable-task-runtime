@@ -107,4 +107,16 @@ public record TaskStep(
         return new TaskStep(id, taskId, ordinal, type, name, nextStatus, attempt, maxAttempts, resumeMode,
                 input, output, failure, checkpointUri, retryAt, createdAt, at);
     }
+
+    /** 保存应用级检查点引用不改变步骤状态，但会更新其结构化 Runtime State。 */
+    public TaskStep withCheckpoint(String newCheckpointUri, Instant at) {
+        if (newCheckpointUri == null || newCheckpointUri.isBlank()) {
+            throw new IllegalArgumentException("checkpointUri 不能为空");
+        }
+        if (status.isTerminal()) {
+            throw new IllegalStateException("终态步骤不能再保存检查点: " + id);
+        }
+        return new TaskStep(id, taskId, ordinal, type, name, status, attempt, maxAttempts, resumeMode,
+                input, output, error, newCheckpointUri, nextRetryAt, createdAt, at);
+    }
 }

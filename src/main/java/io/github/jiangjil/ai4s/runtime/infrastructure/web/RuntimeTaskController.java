@@ -7,6 +7,8 @@ import io.github.jiangjil.ai4s.runtime.application.GetTaskRuntimeStateService;
 import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobCommand;
 import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobService;
 import io.github.jiangjil.ai4s.runtime.application.RuntimeContextBuilder;
+import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointCommand;
+import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointService;
 import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
 import io.github.jiangjil.ai4s.runtime.domain.ResumeMode;
 import io.github.jiangjil.ai4s.runtime.domain.StepType;
@@ -33,16 +35,19 @@ public class RuntimeTaskController {
     private final CreateTaskService createTaskService;
     private final GetTaskRuntimeStateService getTaskRuntimeStateService;
     private final RuntimeContextBuilder runtimeContextBuilder;
+    private final SaveCheckpointService saveCheckpointService;
     private final StartTaskService startTaskService;
     private final RequestAsyncJobService requestAsyncJobService;
 
     public RuntimeTaskController(CreateTaskService createTaskService, GetTaskRuntimeStateService getTaskRuntimeStateService,
                                  RuntimeContextBuilder runtimeContextBuilder,
+                                 SaveCheckpointService saveCheckpointService,
                                  StartTaskService startTaskService,
                                  RequestAsyncJobService requestAsyncJobService) {
         this.createTaskService = createTaskService;
         this.getTaskRuntimeStateService = getTaskRuntimeStateService;
         this.runtimeContextBuilder = runtimeContextBuilder;
+        this.saveCheckpointService = saveCheckpointService;
         this.startTaskService = startTaskService;
         this.requestAsyncJobService = requestAsyncJobService;
     }
@@ -61,6 +66,16 @@ public class RuntimeTaskController {
     @GetMapping("/{taskId}/context")
     public RuntimeContextBuilder.RuntimeContext getContext(@PathVariable UUID taskId) {
         return runtimeContextBuilder.build(getTaskRuntimeStateService.get(taskId));
+    }
+
+    /** 由可信执行器适配器保存应用级检查点；生产环境还需在传输层完成身份认证。 */
+    @PostMapping("/{taskId}/steps/{stepId}/checkpoints")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CheckpointResponse saveCheckpoint(@PathVariable UUID taskId, @PathVariable UUID stepId,
+                                             @RequestBody SaveCheckpointRequest request) {
+        UUID checkpointId = saveCheckpointService.save(new SaveCheckpointCommand(taskId, stepId, request.kind(),
+                request.uri(), request.metadata(), request.traceId()));
+        return new CheckpointResponse(checkpointId);
     }
 
     /** 创建任务及其线性步骤；创建后仍需显式调用 start，避免创建即执行。 */
@@ -118,6 +133,13 @@ public class RuntimeTaskController {
     }
 
     public record RequestAsyncJobResponse(UUID jobId) {
+    }
+
+    /** 检查点文件应先写入对象存储或持久卷；Runtime 仅接收其不可变引用。 */
+    public record SaveCheckpointRequest(String kind, String uri, Map<String, Object> metadata, String traceId) {
+    }
+
+    public record CheckpointResponse(UUID checkpointId) {
     }
 
     /** 对外只暴露必要的运行态；数据库实体和状态迁移方法不会泄漏到 HTTP 层。 */
