@@ -31,4 +31,15 @@ public record ExternalJob(
         Objects.requireNonNull(createdAt, "createdAt is required");
         Objects.requireNonNull(updatedAt, "updatedAt is required");
     }
+
+    public ExternalJob markSubmitted(String submittedExternalJobId, Instant at) {
+        if (status != ExternalJobStatus.SUBMITTING) {
+            throw new IllegalStateException("Only a submitting job can be marked submitted: " + id);
+        }
+        if (submittedExternalJobId == null || submittedExternalJobId.isBlank()) {
+            throw new IllegalArgumentException("externalJobId is required");
+        }
+        return new ExternalJob(id, taskStepId, provider, submittedExternalJobId, idempotencyKey,
+                ExternalJobStatus.SUBMITTED, request, createdAt, at);
+    }
 }

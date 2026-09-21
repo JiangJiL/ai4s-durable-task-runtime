@@ -24,7 +24,7 @@
 
 - [ ] 实现 Local Coding Job Adapter
 - [x] 实现 Outbox / 提交意图 / 幂等键（领域与应用层）
-- [ ] 实现 External Job / Outbox JDBC 适配器与投递 worker
+- [x] 实现 External Job / Outbox JDBC 适配器与投递 worker
 - [ ] 实现 Job 回调入口及去重
 - [ ] 实现周期性 Reconciler
 - [ ] 实现 Retry Policy 与失败分类

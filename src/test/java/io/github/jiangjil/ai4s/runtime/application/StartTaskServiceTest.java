@@ -95,6 +95,11 @@ class StartTaskServiceTest {
         }
 
         @Override
+        public Optional<TaskStep> findStep(UUID stepId) {
+            return steps.stream().filter(step -> step.id().equals(stepId)).findFirst();
+        }
+
+        @Override
         public boolean updateTask(Task task, long expectedVersion) {
             if (!allowTaskUpdate) {
                 return false;

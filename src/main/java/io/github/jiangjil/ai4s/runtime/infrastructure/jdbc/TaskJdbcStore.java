@@ -32,6 +32,10 @@ public final class TaskJdbcStore implements TaskStore {
             SELECT id, task_id, ordinal, step_type, step_name, status, attempt, max_attempts, resume_mode, created_at, updated_at
             FROM task_step WHERE task_id = ? ORDER BY ordinal
             """;
+    private static final String FIND_STEP = """
+            SELECT id, task_id, ordinal, step_type, step_name, status, attempt, max_attempts, resume_mode, created_at, updated_at
+            FROM task_step WHERE id = ?
+            """;
     private static final String UPDATE_TASK = """
             UPDATE task SET status = ?, current_step_id = ?, version = ?, updated_at = ?
             WHERE id = ? AND version = ?
@@ -79,6 +83,18 @@ public final class TaskJdbcStore implements TaskStore {
                 resultSet.getInt("attempt"), resultSet.getInt("max_attempts"),
                 io.github.jiangjil.ai4s.runtime.domain.ResumeMode.valueOf(resultSet.getString("resume_mode")),
                 resultSet.getTimestamp("created_at").toInstant(), resultSet.getTimestamp("updated_at").toInstant()), taskId.toString());
+    }
+
+    @Override
+    public Optional<TaskStep> findStep(UUID stepId) {
+        return jdbcTemplate.query(FIND_STEP, (resultSet, rowNumber) -> new TaskStep(
+                UUID.fromString(resultSet.getString("id")), UUID.fromString(resultSet.getString("task_id")),
+                resultSet.getInt("ordinal"), io.github.jiangjil.ai4s.runtime.domain.StepType.valueOf(resultSet.getString("step_type")),
+                resultSet.getString("step_name"), io.github.jiangjil.ai4s.runtime.domain.StepStatus.valueOf(resultSet.getString("status")),
+                resultSet.getInt("attempt"), resultSet.getInt("max_attempts"),
+                io.github.jiangjil.ai4s.runtime.domain.ResumeMode.valueOf(resultSet.getString("resume_mode")),
+                resultSet.getTimestamp("created_at").toInstant(), resultSet.getTimestamp("updated_at").toInstant()), stepId.toString())
+                .stream().findFirst();
     }
 
     @Override

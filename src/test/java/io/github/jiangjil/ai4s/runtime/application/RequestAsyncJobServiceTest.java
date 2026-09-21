@@ -74,6 +74,7 @@ class RequestAsyncJobServiceTest {
         @Override public void insert(Task task, List<TaskStep> steps) { throw new UnsupportedOperationException(); }
         @Override public Optional<Task> findTask(UUID taskId) { return Optional.of(task); }
         @Override public List<TaskStep> findSteps(UUID taskId) { return List.of(step); }
+        @Override public Optional<TaskStep> findStep(UUID stepId) { return Optional.of(step); }
         @Override public boolean updateTask(Task task, long expectedVersion) { this.task = task; return true; }
         @Override public void updateStep(TaskStep step) { this.step = step; }
     }
@@ -81,11 +82,15 @@ class RequestAsyncJobServiceTest {
     private static final class CapturingExternalJobStore implements ExternalJobStore {
         private ExternalJob job;
         @Override public void insert(ExternalJob job) { this.job = job; }
+        @Override public Optional<ExternalJob> findById(UUID jobId) { return Optional.ofNullable(job); }
+        @Override public void markSubmitted(ExternalJob job) { this.job = job; }
     }
 
     private static final class CapturingOutboxStore implements OutboxStore {
         private OutboxMessage message;
         @Override public void enqueue(OutboxMessage message) { this.message = message; }
+        @Override public List<OutboxMessage> findPending(int limit) { return List.of(); }
+        @Override public void markPublished(UUID messageId, Instant at) { }
     }
 
     private static final class CapturingEventStore implements TaskEventStore {

@@ -15,6 +15,8 @@ public interface TaskStore {
 
     List<TaskStep> findSteps(UUID taskId);
 
+    Optional<TaskStep> findStep(UUID stepId);
+
     /** Returns false when another writer has already changed the Task version. */
     boolean updateTask(Task task, long expectedVersion);
 
