@@ -11,7 +11,7 @@ import java.sql.Timestamp;
 
 /** MySQL 检查点索引适配器；只保存 URI 与元数据，绝不保存大体积计算状态。 */
 @Repository
-public final class CheckpointJdbcStore implements CheckpointStore {
+public class CheckpointJdbcStore implements CheckpointStore {
     private static final String INSERT = """
             INSERT INTO checkpoint (id, task_step_id, checkpoint_kind, uri, metadata_json, created_at)
             VALUES (?, ?, ?, ?, ?, ?)

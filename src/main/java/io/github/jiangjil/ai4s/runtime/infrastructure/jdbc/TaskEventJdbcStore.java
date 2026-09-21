@@ -11,7 +11,7 @@ import java.sql.Timestamp;
 
 /** Runtime 审计事件的 MySQL 追加式持久化适配器。 */
 @Repository
-public final class TaskEventJdbcStore implements TaskEventStore {
+public class TaskEventJdbcStore implements TaskEventStore {
     private static final String INSERT_EVENT = """
             INSERT INTO task_event (task_id, task_step_id, event_type, payload_json, trace_id, occurred_at)
             VALUES (?, ?, ?, ?, ?, ?)

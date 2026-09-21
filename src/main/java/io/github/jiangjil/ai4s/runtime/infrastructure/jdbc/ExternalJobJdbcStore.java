@@ -15,7 +15,7 @@ import java.util.UUID;
 
 /** MySQL 持久化适配器：在真正提交 Job 前先保存可恢复的提交意图。 */
 @Repository
-public final class ExternalJobJdbcStore implements ExternalJobStore {
+public class ExternalJobJdbcStore implements ExternalJobStore {
     private static final String INSERT_EXTERNAL_JOB = """
             INSERT INTO external_job (id, task_step_id, provider, external_job_id, idempotency_key, status,
                                       request_json, result_json, created_at, updated_at)

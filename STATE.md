@@ -30,6 +30,8 @@
 - External Job Reconciler 现会将执行器成功结果写入 Step `output`，将失败分类、Runtime Job ID、外部 Job ID 写入 Step `error`；本地 Coding Adapter 还会保存退出码与日志/完成文件 URI。
 - 实现应用级 Checkpoint：检查点索引写入独立 `checkpoint` 表，最新 URI 原子回写当前 Step，并记录 `CHECKPOINT_SAVED` 事件；仅声明 `resumeMode=CHECKPOINT` 的当前步骤可保存检查点。
 - 增加隔离的 Docker MySQL 集成 profile、Compose 配置和本机验收手册；配置校验与全部 Maven 测试已通过。当前环境无可注入的数据库密码，且 MySQL 8.4 测试镜像下载未完成，故尚未完成真实 Flyway 启动验收。
+- 已使用本地 AI4S MySQL 配置完成真实启动：JDBC 连接成功、Flyway 为已有 V1 schema 建立 version 1 baseline、Tomcat/API 正常启动。真实 E2E 已验证 `READY → DISPATCHING → WAITING_EXTERNAL → SUCCEEDED → 下一 Step READY`，并确认 `/context` 返回结构化输入、退出码、外部 Job ID、日志 URI 与允许动作。
+- 修复 Spring 运行期发现的 Repository 代理问题：受 `@Repository` 管理的 JDBC 适配器不可声明 `final`，否则 Spring 异常转换代理无法创建。
 - 为 Java 核心逻辑和 Flyway V1 schema 补充中文注释，明确事务边界、Crash Window、幂等与事实来源设计。
 - 制定五类故障注入实验：Runtime 重启、提交 Crash Window、重复回调、回调丢失、可恢复/不可恢复失败；每类均定义数据库与本地 Job Registry 的验收证据。
 
@@ -42,6 +44,6 @@
 
 1. 通过安全注入连接 MySQL，启动 Spring Boot，验证 Flyway schema、事务语义和三个定时循环。
 2. 补充结构化上下文与 Checkpoint 的 MySQL 集成测试。
-3. 使用 `docker-compose.it.yml` 启动隔离 MySQL，执行 Spring Boot/Flyway 与 Runtime 重启、重复回调、提交 Crash Window 等故障注入测试。
+3. 执行 Runtime 重启、重复回调、提交 Crash Window 等故障注入测试，并记录 AB 对比指标。
 
 > 本文件服务于人和 Agent 的项目协作；它不是 Durable Runtime 的事实来源。运行期真相必须落在 Runtime 数据库和事件日志中。

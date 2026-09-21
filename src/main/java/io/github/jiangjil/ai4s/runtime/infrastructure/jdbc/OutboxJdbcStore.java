@@ -14,7 +14,7 @@ import java.util.UUID;
 
 /** 事务 Outbox 适配器：消息落库与真正投递刻意分离。 */
 @Repository
-public final class OutboxJdbcStore implements OutboxStore {
+public class OutboxJdbcStore implements OutboxStore {
     private static final String INSERT_OUTBOX = """
             INSERT INTO outbox (id, aggregate_type, aggregate_id, message_type, payload_json, idempotency_key, status,
                                 created_at, published_at)

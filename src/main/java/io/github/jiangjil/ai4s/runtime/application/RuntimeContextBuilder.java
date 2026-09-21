@@ -27,10 +27,22 @@ public final class RuntimeContextBuilder {
             return List.of("READ_TASK_STATE");
         }
         return switch (current.status()) {
-            case READY -> List.of("REQUEST_ASYNC_JOB", "PAUSE", "MARK_FAILED");
+            case READY -> readyActions(current);
             case DISPATCHING, WAITING_EXTERNAL, RUNNING -> List.of("RECONCILE_EXTERNAL_JOB", "PAUSE", "MARK_FAILED");
             case RETRY_WAIT -> List.of("WAIT_FOR_RETRY", "PAUSE", "MARK_FAILED");
             default -> List.of("READ_TASK_STATE");
+        };
+    }
+
+    /** READY 的下一动作不仅取决于状态，也取决于该步骤声明的工作类型。 */
+    private static List<String> readyActions(TaskStep current) {
+        return switch (current.type()) {
+            case ASYNC_JOB -> List.of("REQUEST_ASYNC_JOB", "PAUSE", "MARK_FAILED");
+            case TOOL_CALL -> List.of("EXECUTE_TOOL_CALL", "PAUSE", "MARK_FAILED");
+            case AGENT_DECISION -> List.of("REQUEST_AGENT_DECISION", "PAUSE", "MARK_FAILED");
+            case WAIT_EVENT -> List.of("WAIT_FOR_EVENT", "PAUSE", "MARK_FAILED");
+            case HUMAN_APPROVAL -> List.of("REQUEST_HUMAN_APPROVAL", "PAUSE", "MARK_FAILED");
+            case TIMER -> List.of("START_TIMER", "PAUSE", "MARK_FAILED");
         };
     }
 

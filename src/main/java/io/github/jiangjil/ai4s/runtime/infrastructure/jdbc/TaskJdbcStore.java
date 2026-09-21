@@ -16,7 +16,7 @@ import java.util.UUID;
 
 /** MySQL 持久化适配器：在上层事务中原子写入任务及其初始步骤。 */
 @Repository
-public final class TaskJdbcStore implements TaskStore {
+public class TaskJdbcStore implements TaskStore {
     private static final String INSERT_TASK = """
             INSERT INTO task (id, goal, status, current_step_id, version, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
