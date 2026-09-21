@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 
-/** MySQL append-only adapter for Runtime audit events. */
+/** Runtime 审计事件的 MySQL 追加式持久化适配器。 */
 @Repository
 public final class TaskEventJdbcStore implements TaskEventStore {
     private static final String INSERT_EVENT = """

@@ -1,6 +1,6 @@
 package io.github.jiangjil.ai4s.runtime.domain;
 
-/** Lifecycle state of a single executable Task step. */
+/** 单个可执行任务步骤的生命周期状态。 */
 public enum StepStatus {
     PENDING,
     READY,

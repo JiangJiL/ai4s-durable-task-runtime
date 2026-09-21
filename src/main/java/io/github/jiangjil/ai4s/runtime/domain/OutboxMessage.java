@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Transactional message to be processed after the enclosing database transaction commits. */
+/** 包裹数据库事务提交后才允许处理的 Outbox 消息。 */
 public record OutboxMessage(
         UUID id,
         String aggregateType,

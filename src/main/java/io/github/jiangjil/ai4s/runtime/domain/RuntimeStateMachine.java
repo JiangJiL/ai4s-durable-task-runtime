@@ -6,8 +6,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Deterministic lifecycle rules. Persistence and Agent adapters must call this
- * class instead of assigning statuses directly.
+ * 确定性的生命周期规则。持久化层与 Agent 适配器必须调用本类，
+ * 不能直接赋值修改状态。
  */
 public final class RuntimeStateMachine {
 

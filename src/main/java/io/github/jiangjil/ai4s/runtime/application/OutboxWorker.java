@@ -21,8 +21,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Delivers committed outbox messages. It intentionally provides at-least-once
- * delivery; adapter.submit must honor ExternalJob.idempotencyKey().
+ * 投递已提交事务中的 Outbox 消息。
+ * 这里刻意采用“至少一次”投递；执行器必须按 {@code ExternalJob.idempotencyKey()} 去重。
  */
 public final class OutboxWorker {
     private static final String SUBMIT_EXTERNAL_JOB = "SUBMIT_EXTERNAL_JOB";
@@ -71,7 +71,7 @@ public final class OutboxWorker {
             throw new IllegalStateException("Cannot submit job in state " + job.status());
         }
 
-        // If this process dies after submit(), replay calls this with the same idempotency key.
+        // 若进程在 submit() 后崩溃，重放仍使用相同幂等键，不能产生第二个外部 Job。
         String externalJobId = externalJobAdapter.submit(job);
         transaction.required(() -> markSubmissionCommitted(message, job, externalJobId, traceId));
     }

@@ -1,6 +1,6 @@
 package io.github.jiangjil.ai4s.runtime.domain;
 
-/** Independent lifecycle of a Job in an external execution system. */
+/** 外部执行系统中 Job 的独立生命周期。 */
 public enum ExternalJobStatus {
     SUBMITTING,
     SUBMITTED,

@@ -22,8 +22,8 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Reconciles Runtime state against the provider's actual Job state. It never
- * trusts a missing callback as evidence that a Job is still running.
+ * 将 Runtime 状态与外部执行器的真实 Job 状态对账。
+ * 不把“未收到回调”当作 Job 仍在运行的证据；回调只是降低轮询延迟的优化。
  */
 public final class JobReconciler {
     private final ExternalJobStore externalJobStore;
@@ -61,7 +61,7 @@ public final class JobReconciler {
         return active.size();
     }
 
-    /** Accepts a callback observation after provider authentication at the API boundary. */
+    /** 接收已在 API 边界完成鉴权的回调观测值，并与轮询走同一状态迁移路径。 */
     public void reconcileObserved(java.util.UUID jobId, ExternalJobObservation observation, String traceId) {
         transaction.required(() -> {
             ExternalJob snapshot = externalJobStore.findById(jobId)
@@ -75,7 +75,7 @@ public final class JobReconciler {
         ExternalJob job = externalJobStore.findById(snapshot.id())
                 .orElseThrow(() -> new IllegalStateException("External job disappeared: " + snapshot.id()));
         if (job.status() != ExternalJobStatus.SUBMITTED && job.status() != ExternalJobStatus.RUNNING) {
-            return null; // Another reconciler already handled it.
+            return null; // 另一台 Runtime 实例已经处理过该终态 Job。
         }
         if (job.status() == observed) {
             return null;

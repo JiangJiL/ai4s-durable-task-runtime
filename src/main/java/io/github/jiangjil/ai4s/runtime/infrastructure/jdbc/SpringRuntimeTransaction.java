@@ -6,7 +6,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.function.Supplier;
 
-/** Adapts Spring transaction management without leaking it into domain/application code. */
+/** 适配 Spring 事务管理，但不让 Spring 类型泄漏到领域层和应用层。 */
 @Component
 public final class SpringRuntimeTransaction implements RuntimeTransaction {
     private final TransactionTemplate transactionTemplate;

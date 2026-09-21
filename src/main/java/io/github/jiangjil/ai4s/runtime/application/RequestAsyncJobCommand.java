@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Declares a durable request to submit the current ASYNC_JOB step later. */
+/** 声明稍后提交当前 ASYNC_JOB 步骤的可恢复请求。 */
 public record RequestAsyncJobCommand(
         UUID taskId,
         UUID stepId,

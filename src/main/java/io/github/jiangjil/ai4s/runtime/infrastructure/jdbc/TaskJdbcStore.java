@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/** MySQL adapter for atomically inserting a newly declared Task and its Steps. */
+/** MySQL 持久化适配器：在上层事务中原子写入任务及其初始步骤。 */
 @Repository
 public final class TaskJdbcStore implements TaskStore {
     private static final String INSERT_TASK = """

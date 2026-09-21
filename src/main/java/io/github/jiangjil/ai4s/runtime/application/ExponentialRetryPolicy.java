@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Deterministic bounded exponential backoff, deliberately without jitter in the MVP. */
+/** 有上限的确定性指数退避；MVP 故意不引入随机抖动，便于验证。 */
 public final class ExponentialRetryPolicy implements RetryPolicy {
     private final Duration initialDelay;
     private final Duration maximumDelay;

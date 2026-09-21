@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Transactional outbox adapter. Dispatching is deliberately a separate concern. */
+/** 事务 Outbox 适配器：消息落库与真正投递刻意分离。 */
 @Repository
 public final class OutboxJdbcStore implements OutboxStore {
     private static final String INSERT_OUTBOX = """

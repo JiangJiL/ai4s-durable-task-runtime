@@ -14,7 +14,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.UUID;
 
-/** Starts a newly created Task and makes exactly its first pending step ready. */
+/** 启动新建任务，并且只将其第一个待执行步骤置为 READY。 */
 public final class StartTaskService {
     private final TaskStore taskStore;
     private final TaskEventStore eventStore;

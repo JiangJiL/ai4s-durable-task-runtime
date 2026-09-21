@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/** MySQL adapter that persists the durable intent before a Job is submitted. */
+/** MySQL 持久化适配器：在真正提交 Job 前先保存可恢复的提交意图。 */
 @Repository
 public final class ExternalJobJdbcStore implements ExternalJobStore {
     private static final String INSERT_EXTERNAL_JOB = """

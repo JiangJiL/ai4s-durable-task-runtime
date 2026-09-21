@@ -2,7 +2,7 @@ package io.github.jiangjil.ai4s.runtime.application;
 
 import java.util.List;
 
-/** Input to the deterministic Task creation use case. */
+/** 确定性创建任务用例的输入。 */
 public record CreateTaskCommand(String goal, List<CreateStepDefinition> steps, String traceId) {
     public CreateTaskCommand {
         if (goal == null || goal.isBlank()) {

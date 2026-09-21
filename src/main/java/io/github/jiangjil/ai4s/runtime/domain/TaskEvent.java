@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Immutable audit record. Existing events are never mutated or deleted. */
+/** 不可变审计记录；已写入事件绝不修改或删除。 */
 public record TaskEvent(
         UUID taskId,
         UUID stepId,

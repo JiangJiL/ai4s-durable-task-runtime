@@ -1,6 +1,6 @@
 package io.github.jiangjil.ai4s.runtime.domain;
 
-/** Lifecycle state of the durable Task aggregate. */
+/** 可恢复任务聚合的生命周期状态。 */
 public enum TaskStatus {
     CREATED,
     RUNNING,

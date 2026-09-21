@@ -17,10 +17,9 @@ import java.util.HexFormat;
 import java.util.Map;
 
 /**
- * Local process adapter for the Coding-task experiment. The file registry is
- * deliberately external to the Runtime process: after a Runtime crash, the
- * same idempotency key resolves to the same logical Job rather than spawning a
- * second shell command.
+ * Coding 长任务实验使用的本地进程适配器。
+ * 文件注册表故意置于 Runtime 进程外：Runtime 崩溃后，同一幂等键仍解析到同一逻辑 Job，
+ * 而不会再启动第二条 Shell 命令。
  */
 public final class LocalCodingJobAdapter implements ExternalJobAdapter {
     private final Path registryRoot;

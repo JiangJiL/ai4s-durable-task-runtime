@@ -14,7 +14,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 
-/** Turns due retry timers into READY Steps; actual dispatch remains a separate intent. */
+/** 将到期的重试定时器变成 READY 步骤；真正提交仍必须先持久化独立的 Outbox 意图。 */
 public final class ReleaseRetryService {
     private final TaskStore taskStore;
     private final TaskEventStore eventStore;

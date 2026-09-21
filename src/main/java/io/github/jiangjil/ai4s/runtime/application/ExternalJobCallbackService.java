@@ -1,6 +1,6 @@
 package io.github.jiangjil.ai4s.runtime.application;
 
-/** Callback is an accelerator only: it uses the exact same transition path as polling reconciliation. */
+/** 回调只是加速器：它与轮询 Reconcile 完全复用同一条状态迁移路径。 */
 public final class ExternalJobCallbackService {
     private final JobReconciler reconciler;
 

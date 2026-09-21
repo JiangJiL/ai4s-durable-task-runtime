@@ -11,5 +11,16 @@ spring:
     locations: classpath:db/migration
 
 runtime:
+  # 本地 Coding Job 的持久化注册表；它独立于 Runtime 进程，用于跨重启保持幂等映射。
+  local-job:
+    registry-root: ${RUNTIME_LOCAL_JOB_REGISTRY_ROOT:./var/local-job-registry}
+  # 三类后台循环均可通过配置调节，避免把调度策略写死在业务代码中。
+  outbox:
+    fixed-delay: ${RUNTIME_OUTBOX_FIXED_DELAY:PT5S}
+    batch-size: ${RUNTIME_OUTBOX_BATCH_SIZE:20}
   reconciliation:
-    fixed-delay: PT30S
+    fixed-delay: ${RUNTIME_RECONCILIATION_FIXED_DELAY:PT30S}
+    batch-size: ${RUNTIME_RECONCILIATION_BATCH_SIZE:100}
+  retry:
+    fixed-delay: ${RUNTIME_RETRY_FIXED_DELAY:PT10S}
+    batch-size: ${RUNTIME_RETRY_BATCH_SIZE:100}

@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Immutable Task aggregate root. All lifecycle changes pass through transitionTo. */
+/** 不可变的任务聚合根；所有生命周期变更必须经由 transitionTo。 */
 public record Task(
         UUID id,
         String goal,
@@ -35,12 +35,12 @@ public record Task(
         return new Task(id, goal, TaskStatus.RUNNING, firstStepId, version + 1, createdAt, at);
     }
 
-    /** Advances the aggregate version for a stateful child change without changing Task status. */
+    /** 步骤状态变化但任务状态不变时，仍推进聚合版本号以保护并发一致性。 */
     public Task recordActivity(Instant at) {
         return new Task(id, goal, status, currentStepId, version + 1, createdAt, at);
     }
 
-    /** Keeps the task running while deterministically designating its next Step. */
+    /** 保持任务运行态，同时确定性指定下一个当前步骤。 */
     public Task advanceTo(UUID nextStepId, Instant at) {
         Objects.requireNonNull(nextStepId, "nextStepId is required");
         if (status != TaskStatus.RUNNING) {

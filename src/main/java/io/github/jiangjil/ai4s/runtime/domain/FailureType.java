@@ -1,6 +1,6 @@
 package io.github.jiangjil.ai4s.runtime.domain;
 
-/** Failure taxonomy drives deterministic retry decisions instead of blind retries. */
+/** 错误分类用于驱动确定性的重试决策，不能无差别盲目重试。 */
 public enum FailureType {
     NETWORK_ERROR(true),
     TIMEOUT(true),

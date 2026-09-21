@@ -5,7 +5,7 @@ import io.github.jiangjil.ai4s.runtime.domain.StepType;
 
 import java.util.Objects;
 
-/** A declared initial step, not a runtime status mutation. */
+/** 声明式初始步骤定义，不代表一次运行期状态迁移。 */
 public record CreateStepDefinition(StepType type, String name, int maxAttempts, ResumeMode resumeMode) {
     public CreateStepDefinition {
         Objects.requireNonNull(type, "type is required");

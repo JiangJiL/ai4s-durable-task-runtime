@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Persistent submission intent and later external execution reference. */
+/** 持久化的提交意图，以及后续绑定的外部执行引用。 */
 public record ExternalJob(
         UUID id,
         UUID taskStepId,
@@ -43,7 +43,7 @@ public record ExternalJob(
                 ExternalJobStatus.SUBMITTED, request, createdAt, at);
     }
 
-    /** Applies a provider-observed status without permitting impossible rewinds. */
+    /** 应用执行器观测到的状态，但禁止任何不可能的状态回退。 */
     public ExternalJob reconcileTo(ExternalJobStatus observedStatus, Instant at) {
         Objects.requireNonNull(observedStatus, "observedStatus is required");
         if (status == observedStatus) {

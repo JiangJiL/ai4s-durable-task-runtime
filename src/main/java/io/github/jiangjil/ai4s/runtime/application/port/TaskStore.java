@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Persistence port; its caller owns the surrounding transaction. */
+/** 持久化端口；调用方负责包裹其外围事务。 */
 public interface TaskStore {
     void insert(Task task, List<TaskStep> steps);
 
@@ -22,7 +22,7 @@ public interface TaskStore {
         return List.of();
     }
 
-    /** Returns false when another writer has already changed the Task version. */
+    /** 若其他写入方已变更任务版本则返回 false，用于发现并发写冲突。 */
     boolean updateTask(Task task, long expectedVersion);
 
     void updateStep(TaskStep step);

@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
-/** Persists a new Task, its declared Steps and TASK_CREATED event atomically. */
+/** 在同一事务中持久化新任务、其声明步骤以及 TASK_CREATED 事件。 */
 public final class CreateTaskService {
     private final TaskStore taskStore;
     private final TaskEventStore eventStore;

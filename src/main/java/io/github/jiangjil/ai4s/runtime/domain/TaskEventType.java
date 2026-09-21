@@ -1,6 +1,6 @@
 package io.github.jiangjil.ai4s.runtime.domain;
 
-/** Append-only event types emitted by the MVP runtime. */
+/** MVP Runtime 产生的追加式事件类型。 */
 public enum TaskEventType {
     TASK_CREATED,
     TASK_STARTED,

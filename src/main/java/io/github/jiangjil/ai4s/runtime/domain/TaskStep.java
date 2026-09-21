@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Immutable executable unit belonging to a Task. */
+/** 隶属于任务的不可变可执行单元。 */
 public record TaskStep(
         UUID id,
         UUID taskId,
@@ -38,7 +38,7 @@ public record TaskStep(
         Objects.requireNonNull(updatedAt, "updatedAt is required");
     }
 
-    /** Compatibility constructor for steps that are not scheduled for retry. */
+    /** 未进入重试调度的步骤使用的兼容构造器。 */
     public TaskStep(UUID id, UUID taskId, int ordinal, StepType type, String name, StepStatus status,
                     int attempt, int maxAttempts, ResumeMode resumeMode, Instant createdAt, Instant updatedAt) {
         this(id, taskId, ordinal, type, name, status, attempt, maxAttempts, resumeMode, null, createdAt, updatedAt);
