@@ -27,6 +27,7 @@
 - 增加 MVP Runtime 命令 API：创建 Task、启动 Task、为当前 `ASYNC_JOB` Step 持久化 Job 提交意图；HTTP 层不拥有任何状态迁移权。
 - 增加 Runtime Active State 只读查询：从 MySQL Task/Step 记录确定性构造当前步骤与最后成功步骤，不经由 Memory Search 或 LLM 判断进度。
 - 为 Java 核心逻辑和 Flyway V1 schema 补充中文注释，明确事务边界、Crash Window、幂等与事实来源设计。
+- 制定五类故障注入实验：Runtime 重启、提交 Crash Window、重复回调、回调丢失、可恢复/不可恢复失败；每类均定义数据库与本地 Job Registry 的验收证据。
 
 ## 未开始
 
