@@ -63,6 +63,26 @@ class CreateTaskServiceTest {
             this.task = task;
             this.steps = List.copyOf(steps);
         }
+
+        @Override
+        public java.util.Optional<Task> findTask(UUID taskId) {
+            return java.util.Optional.ofNullable(task);
+        }
+
+        @Override
+        public List<TaskStep> findSteps(UUID taskId) {
+            return steps;
+        }
+
+        @Override
+        public boolean updateTask(Task task, long expectedVersion) {
+            this.task = task;
+            return true;
+        }
+
+        @Override
+        public void updateStep(TaskStep step) {
+        }
     }
 
     private static final class CapturingEventStore implements TaskEventStore {

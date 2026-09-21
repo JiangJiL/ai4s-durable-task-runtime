@@ -36,4 +36,9 @@ public record TaskStep(
         Objects.requireNonNull(createdAt, "createdAt is required");
         Objects.requireNonNull(updatedAt, "updatedAt is required");
     }
+
+    public TaskStep transitionTo(StepStatus nextStatus, Instant at) {
+        RuntimeStateMachine.requireStepTransition(status, nextStatus);
+        return new TaskStep(id, taskId, ordinal, type, name, nextStatus, attempt, maxAttempts, resumeMode, createdAt, at);
+    }
 }

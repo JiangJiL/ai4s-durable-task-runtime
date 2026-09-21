@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /** MySQL adapter for atomically inserting a newly declared Task and its Steps. */
@@ -22,6 +23,21 @@ public final class TaskJdbcStore implements TaskStore {
                                    error_json, attempt, max_attempts, resume_mode, checkpoint_uri, next_retry_at,
                                    started_at, finished_at, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+    private static final String FIND_TASK = """
+            SELECT id, goal, status, current_step_id, version, created_at, updated_at
+            FROM task WHERE id = ?
+            """;
+    private static final String FIND_STEPS = """
+            SELECT id, task_id, ordinal, step_type, step_name, status, attempt, max_attempts, resume_mode, created_at, updated_at
+            FROM task_step WHERE task_id = ? ORDER BY ordinal
+            """;
+    private static final String UPDATE_TASK = """
+            UPDATE task SET status = ?, current_step_id = ?, version = ?, updated_at = ?
+            WHERE id = ? AND version = ?
+            """;
+    private static final String UPDATE_STEP = """
+            UPDATE task_step SET status = ?, attempt = ?, updated_at = ? WHERE id = ?
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -44,7 +60,43 @@ public final class TaskJdbcStore implements TaskStore {
         }
     }
 
+    @Override
+    public Optional<Task> findTask(UUID taskId) {
+        return jdbcTemplate.query(FIND_TASK, (resultSet, rowNumber) -> new Task(
+                UUID.fromString(resultSet.getString("id")), resultSet.getString("goal"),
+                io.github.jiangjil.ai4s.runtime.domain.TaskStatus.valueOf(resultSet.getString("status")),
+                nullableUuid(resultSet.getString("current_step_id")), resultSet.getLong("version"),
+                resultSet.getTimestamp("created_at").toInstant(), resultSet.getTimestamp("updated_at").toInstant()), taskId.toString())
+                .stream().findFirst();
+    }
+
+    @Override
+    public List<TaskStep> findSteps(UUID taskId) {
+        return jdbcTemplate.query(FIND_STEPS, (resultSet, rowNumber) -> new TaskStep(
+                UUID.fromString(resultSet.getString("id")), UUID.fromString(resultSet.getString("task_id")),
+                resultSet.getInt("ordinal"), io.github.jiangjil.ai4s.runtime.domain.StepType.valueOf(resultSet.getString("step_type")),
+                resultSet.getString("step_name"), io.github.jiangjil.ai4s.runtime.domain.StepStatus.valueOf(resultSet.getString("status")),
+                resultSet.getInt("attempt"), resultSet.getInt("max_attempts"),
+                io.github.jiangjil.ai4s.runtime.domain.ResumeMode.valueOf(resultSet.getString("resume_mode")),
+                resultSet.getTimestamp("created_at").toInstant(), resultSet.getTimestamp("updated_at").toInstant()), taskId.toString());
+    }
+
+    @Override
+    public boolean updateTask(Task task, long expectedVersion) {
+        return jdbcTemplate.update(UPDATE_TASK, task.status().name(), nullableUuid(task.currentStepId()), task.version(),
+                Timestamp.from(task.updatedAt()), task.id().toString(), expectedVersion) == 1;
+    }
+
+    @Override
+    public void updateStep(TaskStep step) {
+        jdbcTemplate.update(UPDATE_STEP, step.status().name(), step.attempt(), Timestamp.from(step.updatedAt()), step.id().toString());
+    }
+
     private static String nullableUuid(UUID value) {
         return value == null ? null : value.toString();
+    }
+
+    private static UUID nullableUuid(String value) {
+        return value == null ? null : UUID.fromString(value);
     }
 }

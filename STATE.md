@@ -15,6 +15,7 @@
 - 定义 MySQL/Flyway 持久化配置契约和初始数据库 schema。
 - 实现 Task 创建用例：事务边界内创建 Task、初始 Step 和 `TASK_CREATED` 追加事件。
 - 实现 MySQL JDBC 的 Task/Step 与 append-only Event 持久化适配器，以及 Spring 事务适配器。
+- 实现 Task 启动用例：乐观锁保护 `CREATED → RUNNING`，首个 Step 确定性进入 `READY`。
 
 ## 未开始
 
@@ -23,8 +24,8 @@
 
 ## 下一步
 
-1. 实现 Task 调度和推进应用服务。
+1. 实现 `READY → DISPATCHING → WAITING_EXTERNAL` 的异步 Job 提交意图。
 2. 通过安全注入连接 MySQL，验证 Flyway schema 与事务语义。
-3. 实现异步 Job 的提交意图与幂等恢复。
+3. 实现 Reconciler 与 Job 状态驱动的 Step 推进。
 
 > 本文件服务于人和 Agent 的项目协作；它不是 Durable Runtime 的事实来源。运行期真相必须落在 Runtime 数据库和事件日志中。

@@ -28,4 +28,10 @@ public record Task(
         RuntimeStateMachine.requireTaskTransition(status, nextStatus);
         return new Task(id, goal, nextStatus, currentStepId, version + 1, createdAt, at);
     }
+
+    public Task start(UUID firstStepId, Instant at) {
+        Objects.requireNonNull(firstStepId, "firstStepId is required");
+        RuntimeStateMachine.requireTaskTransition(status, TaskStatus.RUNNING);
+        return new Task(id, goal, TaskStatus.RUNNING, firstStepId, version + 1, createdAt, at);
+    }
 }
