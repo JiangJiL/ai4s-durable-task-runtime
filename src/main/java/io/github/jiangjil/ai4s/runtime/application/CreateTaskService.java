@@ -39,7 +39,8 @@ public final class CreateTaskService {
                     .mapToObj(index -> {
                         CreateStepDefinition definition = command.steps().get(index);
                         return new TaskStep(UUID.randomUUID(), taskId, index + 1, definition.type(), definition.name(),
-                                StepStatus.PENDING, 0, definition.maxAttempts(), definition.resumeMode(), now, now);
+                                StepStatus.PENDING, 0, definition.maxAttempts(), definition.resumeMode(),
+                                definition.input(), now, now);
                     })
                     .toList();
             taskStore.insert(task, steps);

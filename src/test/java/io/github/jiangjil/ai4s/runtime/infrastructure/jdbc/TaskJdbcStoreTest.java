@@ -6,6 +6,7 @@ import io.github.jiangjil.ai4s.runtime.domain.StepType;
 import io.github.jiangjil.ai4s.runtime.domain.Task;
 import io.github.jiangjil.ai4s.runtime.domain.TaskStatus;
 import io.github.jiangjil.ai4s.runtime.domain.TaskStep;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -23,7 +24,7 @@ class TaskJdbcStoreTest {
     @Test
     void writesOneTaskAndEveryDeclaredStep() {
         JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
-        TaskJdbcStore store = new TaskJdbcStore(jdbcTemplate);
+        TaskJdbcStore store = new TaskJdbcStore(jdbcTemplate, new ObjectMapper());
         Instant now = Instant.parse("2026-09-21T00:00:00Z");
         UUID taskId = UUID.randomUUID();
         Task task = new Task(taskId, "Durable runtime", TaskStatus.CREATED, null, 0, now, now);

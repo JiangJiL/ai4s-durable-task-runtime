@@ -6,6 +6,7 @@ import io.github.jiangjil.ai4s.runtime.application.CreateTaskService;
 import io.github.jiangjil.ai4s.runtime.application.GetTaskRuntimeStateService;
 import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobCommand;
 import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobService;
+import io.github.jiangjil.ai4s.runtime.application.RuntimeContextBuilder;
 import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
 import io.github.jiangjil.ai4s.runtime.domain.ResumeMode;
 import io.github.jiangjil.ai4s.runtime.domain.StepType;
@@ -31,14 +32,17 @@ import java.util.UUID;
 public class RuntimeTaskController {
     private final CreateTaskService createTaskService;
     private final GetTaskRuntimeStateService getTaskRuntimeStateService;
+    private final RuntimeContextBuilder runtimeContextBuilder;
     private final StartTaskService startTaskService;
     private final RequestAsyncJobService requestAsyncJobService;
 
     public RuntimeTaskController(CreateTaskService createTaskService, GetTaskRuntimeStateService getTaskRuntimeStateService,
+                                 RuntimeContextBuilder runtimeContextBuilder,
                                  StartTaskService startTaskService,
                                  RequestAsyncJobService requestAsyncJobService) {
         this.createTaskService = createTaskService;
         this.getTaskRuntimeStateService = getTaskRuntimeStateService;
+        this.runtimeContextBuilder = runtimeContextBuilder;
         this.startTaskService = startTaskService;
         this.requestAsyncJobService = requestAsyncJobService;
     }
@@ -51,6 +55,12 @@ public class RuntimeTaskController {
     public RuntimeStateResponse get(@PathVariable UUID taskId) {
         GetTaskRuntimeStateService.TaskRuntimeState state = getTaskRuntimeStateService.get(taskId);
         return RuntimeStateResponse.from(state);
+    }
+
+    /** 为 OpenClaw/MCP 等 Agent Adapter 返回确定性 Runtime Context。 */
+    @GetMapping("/{taskId}/context")
+    public RuntimeContextBuilder.RuntimeContext getContext(@PathVariable UUID taskId) {
+        return runtimeContextBuilder.build(getTaskRuntimeStateService.get(taskId));
     }
 
     /** 创建任务及其线性步骤；创建后仍需显式调用 start，避免创建即执行。 */
@@ -89,9 +99,10 @@ public class RuntimeTaskController {
     }
 
     /** 每个步骤使用既定枚举，避免客户端传入任意字符串状态。 */
-    public record StepRequest(StepType type, String name, int maxAttempts, ResumeMode resumeMode) {
+    public record StepRequest(StepType type, String name, int maxAttempts, ResumeMode resumeMode,
+                              Map<String, Object> input) {
         CreateStepDefinition toDefinition() {
-            return new CreateStepDefinition(type, name, maxAttempts, resumeMode);
+            return new CreateStepDefinition(type, name, maxAttempts, resumeMode, input);
         }
     }
 
@@ -127,10 +138,13 @@ public class RuntimeTaskController {
 
     public record StepView(UUID id, int ordinal, StepType type, String name,
                            io.github.jiangjil.ai4s.runtime.domain.StepStatus status, int attempt,
-                           int maxAttempts, ResumeMode resumeMode, java.time.Instant nextRetryAt) {
+                           int maxAttempts, ResumeMode resumeMode, Map<String, Object> input,
+                           Map<String, Object> output, Map<String, Object> error, String checkpointUri,
+                           java.time.Instant nextRetryAt) {
         static StepView from(io.github.jiangjil.ai4s.runtime.domain.TaskStep step) {
             return step == null ? null : new StepView(step.id(), step.ordinal(), step.type(), step.name(), step.status(),
-                    step.attempt(), step.maxAttempts(), step.resumeMode(), step.nextRetryAt());
+                    step.attempt(), step.maxAttempts(), step.resumeMode(), step.input(), step.output(), step.error(),
+                    step.checkpointUri(), step.nextRetryAt());
         }
     }
 }

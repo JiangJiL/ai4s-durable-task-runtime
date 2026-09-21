@@ -2,6 +2,7 @@ package io.github.jiangjil.ai4s.runtime.infrastructure.config;
 
 import io.github.jiangjil.ai4s.runtime.application.ExponentialRetryPolicy;
 import io.github.jiangjil.ai4s.runtime.application.GetTaskRuntimeStateService;
+import io.github.jiangjil.ai4s.runtime.application.RuntimeContextBuilder;
 import io.github.jiangjil.ai4s.runtime.application.ExternalJobCallbackService;
 import io.github.jiangjil.ai4s.runtime.application.JobReconciler;
 import io.github.jiangjil.ai4s.runtime.application.OutboxWorker;
@@ -62,6 +63,12 @@ public class RuntimeConfiguration {
     @Bean
     GetTaskRuntimeStateService getTaskRuntimeStateService(TaskStore taskStore) {
         return new GetTaskRuntimeStateService(taskStore);
+    }
+
+    /** Runtime Context 不依赖 Spring 或检索组件，可直接由 OpenClaw/MCP 适配器复用。 */
+    @Bean
+    RuntimeContextBuilder runtimeContextBuilder() {
+        return new RuntimeContextBuilder();
     }
 
     /** 启动任务时仅推进确定性状态，不由 HTTP 或 Agent 直接改数据库。 */

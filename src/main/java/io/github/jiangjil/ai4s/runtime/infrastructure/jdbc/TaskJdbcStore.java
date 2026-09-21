@@ -1,5 +1,8 @@
 package io.github.jiangjil.ai4s.runtime.infrastructure.jdbc;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.github.jiangjil.ai4s.runtime.application.port.TaskStore;
 import io.github.jiangjil.ai4s.runtime.domain.Task;
 import io.github.jiangjil.ai4s.runtime.domain.TaskStep;
@@ -29,11 +32,13 @@ public final class TaskJdbcStore implements TaskStore {
             FROM task WHERE id = ?
             """;
     private static final String FIND_STEPS = """
-            SELECT id, task_id, ordinal, step_type, step_name, status, attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
+            SELECT id, task_id, ordinal, step_type, step_name, status, input_json, output_json, error_json, checkpoint_uri,
+                   attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
             FROM task_step WHERE task_id = ? ORDER BY ordinal
             """;
     private static final String FIND_STEP = """
-            SELECT id, task_id, ordinal, step_type, step_name, status, attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
+            SELECT id, task_id, ordinal, step_type, step_name, status, input_json, output_json, error_json, checkpoint_uri,
+                   attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
             FROM task_step WHERE id = ?
             """;
     private static final String UPDATE_TASK = """
@@ -41,17 +46,21 @@ public final class TaskJdbcStore implements TaskStore {
             WHERE id = ? AND version = ?
             """;
     private static final String UPDATE_STEP = """
-            UPDATE task_step SET status = ?, attempt = ?, next_retry_at = ?, updated_at = ? WHERE id = ?
+            UPDATE task_step SET status = ?, input_json = ?, output_json = ?, error_json = ?, checkpoint_uri = ?,
+                                 attempt = ?, next_retry_at = ?, updated_at = ? WHERE id = ?
             """;
     private static final String FIND_RETRY_DUE = """
-            SELECT id, task_id, ordinal, step_type, step_name, status, attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
+            SELECT id, task_id, ordinal, step_type, step_name, status, input_json, output_json, error_json, checkpoint_uri,
+                   attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
             FROM task_step WHERE status = 'RETRY_WAIT' AND next_retry_at <= ? ORDER BY next_retry_at LIMIT ?
             """;
 
     private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper;
 
-    public TaskJdbcStore(JdbcTemplate jdbcTemplate) {
+    public TaskJdbcStore(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
         this.jdbcTemplate = jdbcTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -63,8 +72,9 @@ public final class TaskJdbcStore implements TaskStore {
         for (TaskStep step : steps) {
             jdbcTemplate.update(INSERT_STEP,
                     step.id().toString(), step.taskId().toString(), step.ordinal(), step.type().name(), step.name(),
-                    step.status().name(), null, null, null, step.attempt(), step.maxAttempts(), step.resumeMode().name(),
-                    null, null, null, null, Timestamp.from(step.createdAt()), Timestamp.from(step.updatedAt()));
+                    step.status().name(), serialize(step.input()), serialize(step.output()), serialize(step.error()),
+                    step.attempt(), step.maxAttempts(), step.resumeMode().name(), step.checkpointUri(),
+                    nullableTimestamp(step.nextRetryAt()), null, null, Timestamp.from(step.createdAt()), Timestamp.from(step.updatedAt()));
         }
     }
 
@@ -80,39 +90,18 @@ public final class TaskJdbcStore implements TaskStore {
 
     @Override
     public List<TaskStep> findSteps(UUID taskId) {
-        return jdbcTemplate.query(FIND_STEPS, (resultSet, rowNumber) -> new TaskStep(
-                UUID.fromString(resultSet.getString("id")), UUID.fromString(resultSet.getString("task_id")),
-                resultSet.getInt("ordinal"), io.github.jiangjil.ai4s.runtime.domain.StepType.valueOf(resultSet.getString("step_type")),
-                resultSet.getString("step_name"), io.github.jiangjil.ai4s.runtime.domain.StepStatus.valueOf(resultSet.getString("status")),
-                resultSet.getInt("attempt"), resultSet.getInt("max_attempts"),
-                io.github.jiangjil.ai4s.runtime.domain.ResumeMode.valueOf(resultSet.getString("resume_mode")),
-                nullableInstant(resultSet.getTimestamp("next_retry_at")),
-                resultSet.getTimestamp("created_at").toInstant(), resultSet.getTimestamp("updated_at").toInstant()), taskId.toString());
+        return jdbcTemplate.query(FIND_STEPS, (resultSet, rowNumber) -> mapStep(resultSet), taskId.toString());
     }
 
     @Override
     public Optional<TaskStep> findStep(UUID stepId) {
-        return jdbcTemplate.query(FIND_STEP, (resultSet, rowNumber) -> new TaskStep(
-                UUID.fromString(resultSet.getString("id")), UUID.fromString(resultSet.getString("task_id")),
-                resultSet.getInt("ordinal"), io.github.jiangjil.ai4s.runtime.domain.StepType.valueOf(resultSet.getString("step_type")),
-                resultSet.getString("step_name"), io.github.jiangjil.ai4s.runtime.domain.StepStatus.valueOf(resultSet.getString("status")),
-                resultSet.getInt("attempt"), resultSet.getInt("max_attempts"),
-                io.github.jiangjil.ai4s.runtime.domain.ResumeMode.valueOf(resultSet.getString("resume_mode")),
-                nullableInstant(resultSet.getTimestamp("next_retry_at")),
-                resultSet.getTimestamp("created_at").toInstant(), resultSet.getTimestamp("updated_at").toInstant()), stepId.toString())
+        return jdbcTemplate.query(FIND_STEP, (resultSet, rowNumber) -> mapStep(resultSet), stepId.toString())
                 .stream().findFirst();
     }
 
     @Override
     public List<TaskStep> findRetryDue(java.time.Instant dueAt, int limit) {
-        return jdbcTemplate.query(FIND_RETRY_DUE, (resultSet, rowNumber) -> new TaskStep(
-                UUID.fromString(resultSet.getString("id")), UUID.fromString(resultSet.getString("task_id")),
-                resultSet.getInt("ordinal"), io.github.jiangjil.ai4s.runtime.domain.StepType.valueOf(resultSet.getString("step_type")),
-                resultSet.getString("step_name"), io.github.jiangjil.ai4s.runtime.domain.StepStatus.valueOf(resultSet.getString("status")),
-                resultSet.getInt("attempt"), resultSet.getInt("max_attempts"),
-                io.github.jiangjil.ai4s.runtime.domain.ResumeMode.valueOf(resultSet.getString("resume_mode")),
-                nullableInstant(resultSet.getTimestamp("next_retry_at")), resultSet.getTimestamp("created_at").toInstant(),
-                resultSet.getTimestamp("updated_at").toInstant()), Timestamp.from(dueAt), limit);
+        return jdbcTemplate.query(FIND_RETRY_DUE, (resultSet, rowNumber) -> mapStep(resultSet), Timestamp.from(dueAt), limit);
     }
 
     @Override
@@ -123,8 +112,42 @@ public final class TaskJdbcStore implements TaskStore {
 
     @Override
     public void updateStep(TaskStep step) {
-        jdbcTemplate.update(UPDATE_STEP, step.status().name(), step.attempt(), nullableTimestamp(step.nextRetryAt()),
+        jdbcTemplate.update(UPDATE_STEP, step.status().name(), serialize(step.input()), serialize(step.output()),
+                serialize(step.error()), step.checkpointUri(), step.attempt(), nullableTimestamp(step.nextRetryAt()),
                 Timestamp.from(step.updatedAt()), step.id().toString());
+    }
+
+    /** 从 JSON 列还原结构化上下文；当前状态绝不由语义检索反推。 */
+    private TaskStep mapStep(java.sql.ResultSet resultSet) throws java.sql.SQLException {
+        return new TaskStep(UUID.fromString(resultSet.getString("id")), UUID.fromString(resultSet.getString("task_id")),
+                resultSet.getInt("ordinal"), io.github.jiangjil.ai4s.runtime.domain.StepType.valueOf(resultSet.getString("step_type")),
+                resultSet.getString("step_name"), io.github.jiangjil.ai4s.runtime.domain.StepStatus.valueOf(resultSet.getString("status")),
+                resultSet.getInt("attempt"), resultSet.getInt("max_attempts"),
+                io.github.jiangjil.ai4s.runtime.domain.ResumeMode.valueOf(resultSet.getString("resume_mode")),
+                deserialize(resultSet.getString("input_json")), deserialize(resultSet.getString("output_json")),
+                deserialize(resultSet.getString("error_json")), resultSet.getString("checkpoint_uri"),
+                nullableInstant(resultSet.getTimestamp("next_retry_at")), resultSet.getTimestamp("created_at").toInstant(),
+                resultSet.getTimestamp("updated_at").toInstant());
+    }
+
+    private String serialize(java.util.Map<String, Object> value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException("步骤结构化上下文无法序列化为 JSON", exception);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private java.util.Map<String, Object> deserialize(String value) {
+        if (value == null) {
+            return java.util.Map.of();
+        }
+        try {
+            return objectMapper.readValue(value, java.util.Map.class);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("数据库中的步骤结构化上下文无法解析", exception);
+        }
     }
 
     private static String nullableUuid(UUID value) {
