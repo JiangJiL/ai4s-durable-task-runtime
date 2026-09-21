@@ -10,9 +10,9 @@
 
 ## P1：最小 Durable Core
 
-- [ ] 准备 MySQL（优先 Docker）
+- [ ] 准备 MySQL（优先 Docker；连接信息只通过环境变量提供）
 - [x] 初始化 Maven / Spring Boot 工程
-- [ ] 建立 Flyway schema
+- [x] 建立 Flyway schema
 - [x] 实现 Task / Step 状态机
 - [ ] 实现创建、读取、推进 Task 的应用服务
 - [x] 编写状态迁移单元测试

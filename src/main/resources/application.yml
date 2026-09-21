@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: durable-task-runtime
+  datasource:
+    url: ${RUNTIME_DB_URL}
+    username: ${RUNTIME_DB_USERNAME}
+    password: ${RUNTIME_DB_PASSWORD}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+runtime:
+  reconciliation:
+    fixed-delay: PT30S
