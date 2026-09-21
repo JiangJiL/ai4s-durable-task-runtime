@@ -10,12 +10,12 @@
 
 ## P1：最小 Durable Core
 
-- [ ] 准备 JDK 21 与 PostgreSQL
-- [ ] 初始化 Maven 多模块工程
+- [ ] 准备 MySQL（优先 Docker）
+- [x] 初始化 Maven / Spring Boot 工程
 - [ ] 建立 Flyway schema
-- [ ] 实现 Task / Step 状态机与事件日志
+- [x] 实现 Task / Step 状态机
 - [ ] 实现创建、读取、推进 Task 的应用服务
-- [ ] 编写状态迁移单元测试
+- [x] 编写状态迁移单元测试
 
 ## P2：异步 Job 与恢复
 

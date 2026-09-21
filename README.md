@@ -12,10 +12,10 @@
 
 ## 技术基线
 
-- JDK 21 LTS
+- JDK 17
 - Spring Boot 3.4.x（适配层，不承载领域规则）
 - Maven 3.6.3
-- PostgreSQL
+- MySQL
 - Flyway
 - 本地 durable artifact directory（后续可替换为 MinIO/S3/NAS）
 

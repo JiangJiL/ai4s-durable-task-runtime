@@ -22,4 +22,4 @@ Agent 负责规划和提出 Intent；Runtime 校验状态迁移、保存事件�
 
 ## ADR-006：技术基线
 
-使用 JDK 21 LTS、Spring Boot 3.4.x、Maven 3.6.3、PostgreSQL、Flyway。当前机器仅发现 JDK 8，不在未获授权下自行安装或切换。
+使用 JDK 17、Spring Boot 3.4.x、Maven 3.6.3、MySQL、Flyway。本机已安装 JDK 17；Maven 执行时显式选择该 JDK，避免默认 JDK 8 造成误编译。

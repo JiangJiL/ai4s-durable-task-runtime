@@ -15,12 +15,12 @@
 
 ## 2. 技术选择
 
-- **JDK 21 LTS / Spring Boot 3.4.x / Maven 3.6.3**：新项目采用现代 LTS；Spring Boot 仅处理 Web/API/调度/装配。
-- **PostgreSQL + Flyway**：关系数据、事务、唯一约束与查询能力足以支撑首版。
+- **JDK 17 / Spring Boot 3.4.x / Maven 3.6.3**：Spring Boot 3.4 的最低 Java 版本为 17；Spring Boot 仅处理 Web/API/调度/装配。
+- **MySQL + Flyway**：关系数据、事务、唯一约束与查询能力足以支撑首版。
 - **本地 Artifact Store**：文件写入 durable directory；数据库只保存 URI、摘要、大小、创建时间和元数据。后续通过接口替换为对象存储。
 - **纯 Java Domain Core**：状态机、命令、事件和策略不依赖 Spring/JPA，便于测试及后续迁移。
 
-当前开发机仅有 JDK 8；在 JDK 21 可用前，项目停留在设计阶段。
+本机已安装 JDK 17，但默认 `java` 指向 JDK 8；构建命令必须显式选择 JDK 17。
 
 ## 3. 架构与职责
 
