@@ -90,4 +90,21 @@ public record TaskStep(
         return new TaskStep(id, taskId, ordinal, type, name, StepStatus.RETRY_WAIT, attempt, maxAttempts,
                 resumeMode, input, output, error, checkpointUri, retryAt, createdAt, at);
     }
+
+    /** 将执行器已确认的成功结果写入步骤；只有 Runtime 可以在合法状态迁移时调用。 */
+    public TaskStep succeedWith(Map<String, Object> completedOutput, String completedCheckpointUri, Instant at) {
+        RuntimeStateMachine.requireStepTransition(status, StepStatus.SUCCEEDED);
+        return new TaskStep(id, taskId, ordinal, type, name, StepStatus.SUCCEEDED, attempt, maxAttempts, resumeMode,
+                input, completedOutput, Map.of(), completedCheckpointUri, null, createdAt, at);
+    }
+
+    /** 写入结构化失败事实；可重试失败会保留这些事实供下一次 attempt 和 Agent 分析。 */
+    public TaskStep failWith(Map<String, Object> failure, StepStatus nextStatus, Instant retryAt, Instant at) {
+        if (nextStatus != StepStatus.RETRY_WAIT && nextStatus != StepStatus.FAILED) {
+            throw new IllegalArgumentException("失败步骤只能进入 RETRY_WAIT 或 FAILED");
+        }
+        RuntimeStateMachine.requireStepTransition(status, nextStatus);
+        return new TaskStep(id, taskId, ordinal, type, name, nextStatus, attempt, maxAttempts, resumeMode,
+                input, output, failure, checkpointUri, retryAt, createdAt, at);
+    }
 }

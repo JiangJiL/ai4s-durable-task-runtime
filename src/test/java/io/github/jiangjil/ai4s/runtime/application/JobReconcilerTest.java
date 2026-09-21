@@ -39,6 +39,7 @@ class JobReconcilerTest {
         assertEquals(ExternalJobStatus.SUCCEEDED, fixture.jobStore.job.status());
         assertEquals(StepStatus.SUCCEEDED, fixture.taskStore.steps.get(0).status());
         assertEquals(TaskStatus.SUCCEEDED, fixture.taskStore.task.status());
+        assertEquals("job-1", fixture.taskStore.steps.get(0).output().get("externalJobId"));
     }
 
     @Test
@@ -60,6 +61,7 @@ class JobReconcilerTest {
         assertEquals(ExternalJobStatus.LOST, fixture.jobStore.job.status());
         assertEquals(StepStatus.RETRY_WAIT, fixture.taskStore.steps.get(0).status());
         assertEquals(TaskStatus.WAITING, fixture.taskStore.task.status());
+        assertEquals("PROCESS_LOST", fixture.taskStore.steps.get(0).error().get("failureType"));
     }
 
     private static Fixture fixture(int stepCount) {

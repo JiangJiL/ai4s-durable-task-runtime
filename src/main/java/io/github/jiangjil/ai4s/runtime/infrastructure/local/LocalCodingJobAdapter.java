@@ -67,9 +67,13 @@ public final class LocalCodingJobAdapter implements ExternalJobAdapter {
             Path completion = completion(job.externalJobId());
             if (Files.exists(completion)) {
                 int exitCode = Integer.parseInt(Files.readString(completion, StandardCharsets.UTF_8).trim());
+                Map<String, Object> result = Map.of(
+                        "exitCode", exitCode,
+                        "logUri", output(job.externalJobId()).toUri().toString(),
+                        "completionUri", completion.toUri().toString());
                 return exitCode == 0
-                        ? new ExternalJobObservation(ExternalJobStatus.SUCCEEDED, null)
-                        : new ExternalJobObservation(ExternalJobStatus.FAILED, FailureType.APPLICATION_ERROR);
+                        ? new ExternalJobObservation(ExternalJobStatus.SUCCEEDED, null, result)
+                        : new ExternalJobObservation(ExternalJobStatus.FAILED, FailureType.APPLICATION_ERROR, result);
             }
             Path marker = marker(job.externalJobId());
             if (!Files.exists(marker)) {

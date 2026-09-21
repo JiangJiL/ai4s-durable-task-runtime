@@ -90,18 +90,23 @@ public final class JobReconciler {
 
         switch (observed) {
             case RUNNING -> eventStore.append(event(task, step, TaskEventType.JOB_RUNNING, updatedJob, traceId, now));
-            case SUCCEEDED -> markSucceeded(task, step, updatedJob, traceId, now);
-            case FAILED, CANCELLED, LOST -> markFailed(task, step, updatedJob, observation.failureType(), traceId, now);
+            case SUCCEEDED -> markSucceeded(task, step, updatedJob, observation.result(), traceId, now);
+            case FAILED, CANCELLED, LOST -> markFailed(task, step, updatedJob, observation.failureType(),
+                    observation.result(), traceId, now);
             default -> throw new IllegalStateException("Unexpected reconciled status: " + observed);
         }
         return null;
     }
 
-    private void markSucceeded(Task task, TaskStep step, ExternalJob job, String traceId, Instant now) {
+    private void markSucceeded(Task task, TaskStep step, ExternalJob job, java.util.Map<String, Object> result,
+                               String traceId, Instant now) {
         if (step.status() != StepStatus.WAITING_EXTERNAL) {
             throw new IllegalStateException("Completed Job has non-waiting Step: " + step.id());
         }
-        TaskStep succeededStep = step.transitionTo(StepStatus.SUCCEEDED, now);
+        java.util.Map<String, Object> output = new java.util.HashMap<>(result);
+        output.put("externalJobId", job.externalJobId());
+        output.put("runtimeJobId", job.id().toString());
+        TaskStep succeededStep = step.succeedWith(output, null, now);
         List<TaskStep> steps = taskStore.findSteps(task.id());
         TaskStep next = steps.stream().filter(candidate -> candidate.ordinal() > step.ordinal())
                 .min(Comparator.comparingInt(TaskStep::ordinal)).orElse(null);
@@ -126,7 +131,8 @@ public final class JobReconciler {
                 java.util.Map.of("ordinal", readyStep.ordinal()), traceId, now));
     }
 
-    private void markFailed(Task task, TaskStep step, ExternalJob job, FailureType failureType, String traceId, Instant now) {
+    private void markFailed(Task task, TaskStep step, ExternalJob job, FailureType failureType,
+                            java.util.Map<String, Object> result, String traceId, Instant now) {
         if (step.status() != StepStatus.WAITING_EXTERNAL) {
             throw new IllegalStateException("Terminal Job has non-waiting Step: " + step.id());
         }
@@ -135,7 +141,8 @@ public final class JobReconciler {
         eventStore.append(new TaskEvent(task.id(), step.id(), type,
                 java.util.Map.of("jobId", job.id().toString(), "failureType", failureType.name()), traceId, now));
         if (retryAt.isPresent()) {
-            TaskStep retryingStep = step.scheduleRetry(retryAt.get(), now);
+            TaskStep retryingStep = step.failWith(failureDetails(job, failureType, result), StepStatus.RETRY_WAIT,
+                    retryAt.get(), now);
             Task waiting = task.transitionTo(TaskStatus.WAITING, now);
             taskStore.updateStep(retryingStep);
             updateTask(waiting, task.version());
@@ -143,7 +150,7 @@ public final class JobReconciler {
                     java.util.Map.of("failureType", failureType.name(), "nextRetryAt", retryAt.get().toString()), traceId, now));
             return;
         }
-        TaskStep failedStep = step.transitionTo(StepStatus.FAILED, now);
+        TaskStep failedStep = step.failWith(failureDetails(job, failureType, result), StepStatus.FAILED, null, now);
         Task failed = task.transitionTo(TaskStatus.FAILED, now);
         taskStore.updateStep(failedStep);
         updateTask(failed, task.version());
@@ -153,6 +160,16 @@ public final class JobReconciler {
         if (!taskStore.updateTask(updated, expectedVersion)) {
             throw new ConcurrentTaskUpdateException(updated.id());
         }
+    }
+
+    /** 将执行器错误与 Runtime Job 身份一同结构化保存，供确定性恢复和 Agent 辅助分析使用。 */
+    private static java.util.Map<String, Object> failureDetails(ExternalJob job, FailureType failureType,
+                                                                 java.util.Map<String, Object> result) {
+        java.util.Map<String, Object> details = new java.util.HashMap<>(result);
+        details.put("failureType", failureType.name());
+        details.put("externalJobId", job.externalJobId());
+        details.put("runtimeJobId", job.id().toString());
+        return details;
     }
 
     private static TaskEvent event(Task task, TaskStep step, TaskEventType type, ExternalJob job, String traceId, Instant now) {

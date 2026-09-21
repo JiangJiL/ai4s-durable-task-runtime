@@ -27,6 +27,7 @@
 - 增加 MVP Runtime 命令 API：创建 Task、启动 Task、为当前 `ASYNC_JOB` Step 持久化 Job 提交意图；HTTP 层不拥有任何状态迁移权。
 - 增加 Runtime Active State 只读查询：从 MySQL Task/Step 记录确定性构造当前步骤与最后成功步骤，不经由 Memory Search 或 LLM 判断进度。
 - 将 Step 的 `input / output / error / checkpointUri` 纳入领域对象和 JDBC JSON 持久化；新增 `/api/runtime/tasks/{taskId}/context`，为 OpenClaw/MCP Adapter 提供确定性 Runtime Context 与允许动作。
+- External Job Reconciler 现会将执行器成功结果写入 Step `output`，将失败分类、Runtime Job ID、外部 Job ID 写入 Step `error`；本地 Coding Adapter 还会保存退出码与日志/完成文件 URI。
 - 为 Java 核心逻辑和 Flyway V1 schema 补充中文注释，明确事务边界、Crash Window、幂等与事实来源设计。
 - 制定五类故障注入实验：Runtime 重启、提交 Crash Window、重复回调、回调丢失、可恢复/不可恢复失败；每类均定义数据库与本地 Job Registry 的验收证据。
 
@@ -38,7 +39,7 @@
 ## 下一步
 
 1. 通过安全注入连接 MySQL，启动 Spring Boot，验证 Flyway schema、事务语义和三个定时循环。
-2. 为 Step 的成功/失败写入实现结构化 output/error/checkpoint 回写命令，并补充对应集成测试。
+2. 实现应用级 checkpoint 的创建与引用回写，并补充结构化上下文的 MySQL 集成测试。
 3. 启动 Spring Boot + MySQL/Flyway，执行 Runtime 重启、重复回调、提交 Crash Window 等故障注入测试。
 
 > 本文件服务于人和 Agent 的项目协作；它不是 Durable Runtime 的事实来源。运行期真相必须落在 Runtime 数据库和事件日志中。
