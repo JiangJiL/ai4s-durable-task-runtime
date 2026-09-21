@@ -6,7 +6,7 @@
 - [x] 设计 Runtime 架构与状态模型
 - [x] 设计数据模型、幂等和恢复规则
 - [x] 设计首个 Coding 长任务实验
-- [ ] 用户 Review 并确认设计
+- [x] 用户 Review 并确认设计
 
 ## P1：最小 Durable Core
 
@@ -14,7 +14,9 @@
 - [x] 初始化 Maven / Spring Boot 工程
 - [x] 建立 Flyway schema
 - [x] 实现 Task / Step 状态机
-- [ ] 实现创建、读取、推进 Task 的应用服务
+- [x] 实现创建 Task 的应用服务
+- [x] 实现 Task/Step/事件 JDBC 仓储
+- [ ] 实现读取、调度、推进 Task 的应用服务
 - [x] 编写状态迁移单元测试
 
 ## P2：异步 Job 与恢复

@@ -2,9 +2,10 @@ spring:
   application:
     name: durable-task-runtime
   datasource:
-    url: ${RUNTIME_DB_URL}
-    username: ${RUNTIME_DB_USERNAME}
+    url: jdbc:mysql://127.0.0.1:3306/ai4s_durable_runtime?allowPublicKeyRetrieval=true&useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&serverTimezone=GMT%2B8
+    username: root
     password: ${RUNTIME_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
   flyway:
     enabled: true
     locations: classpath:db/migration
