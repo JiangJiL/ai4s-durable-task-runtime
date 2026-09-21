@@ -1,6 +1,7 @@
 package io.github.jiangjil.ai4s.runtime.infrastructure.config;
 
 import io.github.jiangjil.ai4s.runtime.application.ExponentialRetryPolicy;
+import io.github.jiangjil.ai4s.runtime.application.GetTaskRuntimeStateService;
 import io.github.jiangjil.ai4s.runtime.application.ExternalJobCallbackService;
 import io.github.jiangjil.ai4s.runtime.application.JobReconciler;
 import io.github.jiangjil.ai4s.runtime.application.OutboxWorker;
@@ -55,6 +56,12 @@ public class RuntimeConfiguration {
     CreateTaskService createTaskService(TaskStore taskStore, TaskEventStore eventStore,
                                         RuntimeTransaction transaction, Clock runtimeClock) {
         return new CreateTaskService(taskStore, eventStore, transaction, runtimeClock);
+    }
+
+    /** 状态查询只读 Runtime DB，是 Active State 的唯一事实入口。 */
+    @Bean
+    GetTaskRuntimeStateService getTaskRuntimeStateService(TaskStore taskStore) {
+        return new GetTaskRuntimeStateService(taskStore);
     }
 
     /** 启动任务时仅推进确定性状态，不由 HTTP 或 Agent 直接改数据库。 */

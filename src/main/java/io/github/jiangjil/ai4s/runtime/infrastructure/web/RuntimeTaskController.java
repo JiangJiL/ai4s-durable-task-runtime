@@ -3,6 +3,7 @@ package io.github.jiangjil.ai4s.runtime.infrastructure.web;
 import io.github.jiangjil.ai4s.runtime.application.CreateStepDefinition;
 import io.github.jiangjil.ai4s.runtime.application.CreateTaskCommand;
 import io.github.jiangjil.ai4s.runtime.application.CreateTaskService;
+import io.github.jiangjil.ai4s.runtime.application.GetTaskRuntimeStateService;
 import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobCommand;
 import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobService;
 import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
@@ -11,6 +12,7 @@ import io.github.jiangjil.ai4s.runtime.domain.StepType;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -28,14 +30,27 @@ import java.util.UUID;
 @RequestMapping("/api/runtime/tasks")
 public class RuntimeTaskController {
     private final CreateTaskService createTaskService;
+    private final GetTaskRuntimeStateService getTaskRuntimeStateService;
     private final StartTaskService startTaskService;
     private final RequestAsyncJobService requestAsyncJobService;
 
-    public RuntimeTaskController(CreateTaskService createTaskService, StartTaskService startTaskService,
+    public RuntimeTaskController(CreateTaskService createTaskService, GetTaskRuntimeStateService getTaskRuntimeStateService,
+                                 StartTaskService startTaskService,
                                  RequestAsyncJobService requestAsyncJobService) {
         this.createTaskService = createTaskService;
+        this.getTaskRuntimeStateService = getTaskRuntimeStateService;
         this.startTaskService = startTaskService;
         this.requestAsyncJobService = requestAsyncJobService;
+    }
+
+    /**
+     * 返回确定性的 Active State。调用方无需也不得通过语义召回判断当前步骤。
+     * 结构化 input/output/error/checkpoint 的完整 API 将在后续持久化模型扩展后增加。
+     */
+    @GetMapping("/{taskId}")
+    public RuntimeStateResponse get(@PathVariable UUID taskId) {
+        GetTaskRuntimeStateService.TaskRuntimeState state = getTaskRuntimeStateService.get(taskId);
+        return RuntimeStateResponse.from(state);
     }
 
     /** 创建任务及其线性步骤；创建后仍需显式调用 start，避免创建即执行。 */
@@ -92,5 +107,30 @@ public class RuntimeTaskController {
     }
 
     public record RequestAsyncJobResponse(UUID jobId) {
+    }
+
+    /** 对外只暴露必要的运行态；数据库实体和状态迁移方法不会泄漏到 HTTP 层。 */
+    public record RuntimeStateResponse(TaskView task, StepView currentStep, StepView lastSuccessfulStep,
+                                       List<StepView> steps) {
+        static RuntimeStateResponse from(GetTaskRuntimeStateService.TaskRuntimeState state) {
+            return new RuntimeStateResponse(TaskView.from(state.task()), StepView.from(state.currentStep()),
+                    StepView.from(state.lastSuccessfulStep()), state.steps().stream().map(StepView::from).toList());
+        }
+    }
+
+    public record TaskView(UUID id, String goal, io.github.jiangjil.ai4s.runtime.domain.TaskStatus status,
+                           UUID currentStepId, long version) {
+        static TaskView from(io.github.jiangjil.ai4s.runtime.domain.Task task) {
+            return new TaskView(task.id(), task.goal(), task.status(), task.currentStepId(), task.version());
+        }
+    }
+
+    public record StepView(UUID id, int ordinal, StepType type, String name,
+                           io.github.jiangjil.ai4s.runtime.domain.StepStatus status, int attempt,
+                           int maxAttempts, ResumeMode resumeMode, java.time.Instant nextRetryAt) {
+        static StepView from(io.github.jiangjil.ai4s.runtime.domain.TaskStep step) {
+            return step == null ? null : new StepView(step.id(), step.ordinal(), step.type(), step.name(), step.status(),
+                    step.attempt(), step.maxAttempts(), step.resumeMode(), step.nextRetryAt());
+        }
     }
 }

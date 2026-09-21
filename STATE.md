@@ -25,6 +25,7 @@
 - 完成 Spring Runtime 装配：Task 创建/启动/异步 Job 意图服务、Local Coding Job Adapter、Retry Policy 与后台 Worker 全部由配置层组装，领域与应用内核仍不依赖 Spring。
 - 启用三个可配置的定时循环：Outbox 投递、External Job Reconcile、到期 Retry 释放；三者均有独立批量上限与轮询间隔。
 - 增加 MVP Runtime 命令 API：创建 Task、启动 Task、为当前 `ASYNC_JOB` Step 持久化 Job 提交意图；HTTP 层不拥有任何状态迁移权。
+- 增加 Runtime Active State 只读查询：从 MySQL Task/Step 记录确定性构造当前步骤与最后成功步骤，不经由 Memory Search 或 LLM 判断进度。
 - 为 Java 核心逻辑和 Flyway V1 schema 补充中文注释，明确事务边界、Crash Window、幂等与事实来源设计。
 
 ## 未开始
@@ -35,7 +36,7 @@
 ## 下一步
 
 1. 通过安全注入连接 MySQL，启动 Spring Boot，验证 Flyway schema、事务语义和三个定时循环。
-2. 增加只读 Task/Step/Job 查询 API 与 Runtime Context 构造器，验证 Active State 的确定性读取。
+2. 扩展 Step 的结构化 input/output/error/checkpoint 持久化，并据此构造完整 Required Context。
 3. 设计并执行 Runtime 重启、重复回调、提交 Crash Window 等故障注入测试。
 
 > 本文件服务于人和 Agent 的项目协作；它不是 Durable Runtime 的事实来源。运行期真相必须落在 Runtime 数据库和事件日志中。
