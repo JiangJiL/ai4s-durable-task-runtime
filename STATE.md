@@ -20,16 +20,18 @@
 - 实现 External Job / Outbox 的 JDBC 适配器和 at-least-once Outbox Worker，将成功提交后的 Step 推进到 `WAITING_EXTERNAL`。
 - 实现基于外部事实的 Job Reconciler：扫描 `SUBMITTED/RUNNING` Job，成功时推进下一个线性 Step 或完成 Task，终态失败时确定性标记失败。
 - 实现 Failure Type、有上限的指数退避 Retry Policy 和 Retry Release 服务；可恢复失败先进入 `RETRY_WAIT`，计时到期后才回到 `READY`。
+- 实现 Local Coding Job Adapter：本地文件 Job Registry 持久化幂等键对应的逻辑 Job，并可通过进程/退出码文件轮询运行、成功、应用失败和进程丢失。
+- 定义 Callback 归一化入口；Callback 与轮询复用相同 Reconciler，终态 Job 的重复通知为 no-op。
 
 ## 未开始
 
 - MySQL 实例准备（可使用 Docker，后续实施时处理）。
-- Local Coding Job Adapter、MySQL 集成验证与故障注入实验。
+- MySQL 集成验证与故障注入实验。
 
 ## 下一步
 
-1. 实现 Local Coding Job Adapter，并用稳定的本地 Job Registry 支撑幂等提交与轮询。
-2. 通过安全注入连接 MySQL，验证 Flyway schema 与事务语义。
-3. 实现回调去重与故障注入测试。
+1. 通过安全注入连接 MySQL，验证 Flyway schema 与事务语义。
+2. 为 Outbox、Reconciler、Retry 加入 Spring Scheduler 装配和管理入口。
+3. 设计并执行 Runtime 重启、重复回调、提交 Crash Window 等故障注入测试。
 
 > 本文件服务于人和 Agent 的项目协作；它不是 Durable Runtime 的事实来源。运行期真相必须落在 Runtime 数据库和事件日志中。

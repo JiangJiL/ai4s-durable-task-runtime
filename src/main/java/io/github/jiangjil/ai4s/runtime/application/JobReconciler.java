@@ -56,9 +56,18 @@ public final class JobReconciler {
         List<ExternalJob> active = externalJobStore.findActive(limit);
         for (ExternalJob job : active) {
             ExternalJobObservation observation = externalJobAdapter.getObservation(job);
-            transaction.required(() -> reconcile(job, observation, traceId));
+            reconcileObserved(job.id(), observation, traceId);
         }
         return active.size();
+    }
+
+    /** Accepts a callback observation after provider authentication at the API boundary. */
+    public void reconcileObserved(java.util.UUID jobId, ExternalJobObservation observation, String traceId) {
+        transaction.required(() -> {
+            ExternalJob snapshot = externalJobStore.findById(jobId)
+                    .orElseThrow(() -> new IllegalArgumentException("External job not found: " + jobId));
+            return reconcile(snapshot, observation, traceId);
+        });
     }
 
     private Void reconcile(ExternalJob snapshot, ExternalJobObservation observation, String traceId) {
