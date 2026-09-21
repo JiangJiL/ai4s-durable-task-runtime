@@ -27,7 +27,7 @@
 - [x] 实现 External Job / Outbox JDBC 适配器与投递 worker
 - [ ] 实现 Job 回调入口及去重
 - [x] 实现周期性 Reconciler（应用层核心；Spring 定时装配待接入）
-- [ ] 实现 Retry Policy 与失败分类
+- [x] 实现 Retry Policy 与失败分类
 
 ## P3：OpenClaw 集成与实验
 

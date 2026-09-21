@@ -10,4 +10,8 @@ public interface ExternalJobAdapter {
     default io.github.jiangjil.ai4s.runtime.domain.ExternalJobStatus getStatus(ExternalJob job) {
         throw new UnsupportedOperationException("This adapter does not support reconciliation");
     }
+
+    default io.github.jiangjil.ai4s.runtime.domain.ExternalJobObservation getObservation(ExternalJob job) {
+        return new io.github.jiangjil.ai4s.runtime.domain.ExternalJobObservation(getStatus(job), null);
+    }
 }

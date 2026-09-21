@@ -4,6 +4,7 @@ import io.github.jiangjil.ai4s.runtime.domain.Task;
 import io.github.jiangjil.ai4s.runtime.domain.TaskStep;
 
 import java.util.List;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,6 +17,10 @@ public interface TaskStore {
     List<TaskStep> findSteps(UUID taskId);
 
     Optional<TaskStep> findStep(UUID stepId);
+
+    default List<TaskStep> findRetryDue(Instant dueAt, int limit) {
+        return List.of();
+    }
 
     /** Returns false when another writer has already changed the Task version. */
     boolean updateTask(Task task, long expectedVersion);

@@ -53,13 +53,13 @@ class JobReconcilerTest {
     }
 
     @Test
-    void failsTaskWhenProviderReportsLost() {
+    void schedulesRetryWhenProviderReportsLostAndAttemptRemains() {
         Fixture fixture = fixture(1);
         fixture.reconcile(ExternalJobStatus.LOST);
 
         assertEquals(ExternalJobStatus.LOST, fixture.jobStore.job.status());
-        assertEquals(StepStatus.FAILED, fixture.taskStore.steps.get(0).status());
-        assertEquals(TaskStatus.FAILED, fixture.taskStore.task.status());
+        assertEquals(StepStatus.RETRY_WAIT, fixture.taskStore.steps.get(0).status());
+        assertEquals(TaskStatus.WAITING, fixture.taskStore.task.status());
     }
 
     private static Fixture fixture(int stepCount) {

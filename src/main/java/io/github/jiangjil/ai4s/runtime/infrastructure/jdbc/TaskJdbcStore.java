@@ -29,11 +29,11 @@ public final class TaskJdbcStore implements TaskStore {
             FROM task WHERE id = ?
             """;
     private static final String FIND_STEPS = """
-            SELECT id, task_id, ordinal, step_type, step_name, status, attempt, max_attempts, resume_mode, created_at, updated_at
+            SELECT id, task_id, ordinal, step_type, step_name, status, attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
             FROM task_step WHERE task_id = ? ORDER BY ordinal
             """;
     private static final String FIND_STEP = """
-            SELECT id, task_id, ordinal, step_type, step_name, status, attempt, max_attempts, resume_mode, created_at, updated_at
+            SELECT id, task_id, ordinal, step_type, step_name, status, attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
             FROM task_step WHERE id = ?
             """;
     private static final String UPDATE_TASK = """
@@ -41,7 +41,11 @@ public final class TaskJdbcStore implements TaskStore {
             WHERE id = ? AND version = ?
             """;
     private static final String UPDATE_STEP = """
-            UPDATE task_step SET status = ?, attempt = ?, updated_at = ? WHERE id = ?
+            UPDATE task_step SET status = ?, attempt = ?, next_retry_at = ?, updated_at = ? WHERE id = ?
+            """;
+    private static final String FIND_RETRY_DUE = """
+            SELECT id, task_id, ordinal, step_type, step_name, status, attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
+            FROM task_step WHERE status = 'RETRY_WAIT' AND next_retry_at <= ? ORDER BY next_retry_at LIMIT ?
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -82,6 +86,7 @@ public final class TaskJdbcStore implements TaskStore {
                 resultSet.getString("step_name"), io.github.jiangjil.ai4s.runtime.domain.StepStatus.valueOf(resultSet.getString("status")),
                 resultSet.getInt("attempt"), resultSet.getInt("max_attempts"),
                 io.github.jiangjil.ai4s.runtime.domain.ResumeMode.valueOf(resultSet.getString("resume_mode")),
+                nullableInstant(resultSet.getTimestamp("next_retry_at")),
                 resultSet.getTimestamp("created_at").toInstant(), resultSet.getTimestamp("updated_at").toInstant()), taskId.toString());
     }
 
@@ -93,8 +98,21 @@ public final class TaskJdbcStore implements TaskStore {
                 resultSet.getString("step_name"), io.github.jiangjil.ai4s.runtime.domain.StepStatus.valueOf(resultSet.getString("status")),
                 resultSet.getInt("attempt"), resultSet.getInt("max_attempts"),
                 io.github.jiangjil.ai4s.runtime.domain.ResumeMode.valueOf(resultSet.getString("resume_mode")),
+                nullableInstant(resultSet.getTimestamp("next_retry_at")),
                 resultSet.getTimestamp("created_at").toInstant(), resultSet.getTimestamp("updated_at").toInstant()), stepId.toString())
                 .stream().findFirst();
+    }
+
+    @Override
+    public List<TaskStep> findRetryDue(java.time.Instant dueAt, int limit) {
+        return jdbcTemplate.query(FIND_RETRY_DUE, (resultSet, rowNumber) -> new TaskStep(
+                UUID.fromString(resultSet.getString("id")), UUID.fromString(resultSet.getString("task_id")),
+                resultSet.getInt("ordinal"), io.github.jiangjil.ai4s.runtime.domain.StepType.valueOf(resultSet.getString("step_type")),
+                resultSet.getString("step_name"), io.github.jiangjil.ai4s.runtime.domain.StepStatus.valueOf(resultSet.getString("status")),
+                resultSet.getInt("attempt"), resultSet.getInt("max_attempts"),
+                io.github.jiangjil.ai4s.runtime.domain.ResumeMode.valueOf(resultSet.getString("resume_mode")),
+                nullableInstant(resultSet.getTimestamp("next_retry_at")), resultSet.getTimestamp("created_at").toInstant(),
+                resultSet.getTimestamp("updated_at").toInstant()), Timestamp.from(dueAt), limit);
     }
 
     @Override
@@ -105,7 +123,8 @@ public final class TaskJdbcStore implements TaskStore {
 
     @Override
     public void updateStep(TaskStep step) {
-        jdbcTemplate.update(UPDATE_STEP, step.status().name(), step.attempt(), Timestamp.from(step.updatedAt()), step.id().toString());
+        jdbcTemplate.update(UPDATE_STEP, step.status().name(), step.attempt(), nullableTimestamp(step.nextRetryAt()),
+                Timestamp.from(step.updatedAt()), step.id().toString());
     }
 
     private static String nullableUuid(UUID value) {
@@ -114,5 +133,13 @@ public final class TaskJdbcStore implements TaskStore {
 
     private static UUID nullableUuid(String value) {
         return value == null ? null : UUID.fromString(value);
+    }
+
+    private static java.time.Instant nullableInstant(Timestamp value) {
+        return value == null ? null : value.toInstant();
+    }
+
+    private static Timestamp nullableTimestamp(java.time.Instant value) {
+        return value == null ? null : Timestamp.from(value);
     }
 }

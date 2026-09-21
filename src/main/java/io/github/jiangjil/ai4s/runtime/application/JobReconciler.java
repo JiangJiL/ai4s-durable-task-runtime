@@ -6,7 +6,9 @@ import io.github.jiangjil.ai4s.runtime.application.port.RuntimeTransaction;
 import io.github.jiangjil.ai4s.runtime.application.port.TaskEventStore;
 import io.github.jiangjil.ai4s.runtime.application.port.TaskStore;
 import io.github.jiangjil.ai4s.runtime.domain.ExternalJob;
+import io.github.jiangjil.ai4s.runtime.domain.ExternalJobObservation;
 import io.github.jiangjil.ai4s.runtime.domain.ExternalJobStatus;
+import io.github.jiangjil.ai4s.runtime.domain.FailureType;
 import io.github.jiangjil.ai4s.runtime.domain.StepStatus;
 import io.github.jiangjil.ai4s.runtime.domain.Task;
 import io.github.jiangjil.ai4s.runtime.domain.TaskEvent;
@@ -29,28 +31,38 @@ public final class JobReconciler {
     private final TaskStore taskStore;
     private final TaskEventStore eventStore;
     private final RuntimeTransaction transaction;
+    private final RetryPolicy retryPolicy;
     private final Clock clock;
 
     public JobReconciler(ExternalJobStore externalJobStore, ExternalJobAdapter externalJobAdapter,
                          TaskStore taskStore, TaskEventStore eventStore, RuntimeTransaction transaction, Clock clock) {
+        this(externalJobStore, externalJobAdapter, taskStore, eventStore, transaction,
+                new ExponentialRetryPolicy(java.time.Duration.ofSeconds(5), java.time.Duration.ofMinutes(5)), clock);
+    }
+
+    public JobReconciler(ExternalJobStore externalJobStore, ExternalJobAdapter externalJobAdapter,
+                         TaskStore taskStore, TaskEventStore eventStore, RuntimeTransaction transaction,
+                         RetryPolicy retryPolicy, Clock clock) {
         this.externalJobStore = externalJobStore;
         this.externalJobAdapter = externalJobAdapter;
         this.taskStore = taskStore;
         this.eventStore = eventStore;
         this.transaction = transaction;
+        this.retryPolicy = retryPolicy;
         this.clock = clock;
     }
 
     public int reconcileActive(int limit, String traceId) {
         List<ExternalJob> active = externalJobStore.findActive(limit);
         for (ExternalJob job : active) {
-            ExternalJobStatus observed = externalJobAdapter.getStatus(job);
-            transaction.required(() -> reconcile(job, observed, traceId));
+            ExternalJobObservation observation = externalJobAdapter.getObservation(job);
+            transaction.required(() -> reconcile(job, observation, traceId));
         }
         return active.size();
     }
 
-    private Void reconcile(ExternalJob snapshot, ExternalJobStatus observed, String traceId) {
+    private Void reconcile(ExternalJob snapshot, ExternalJobObservation observation, String traceId) {
+        ExternalJobStatus observed = observation.status();
         ExternalJob job = externalJobStore.findById(snapshot.id())
                 .orElseThrow(() -> new IllegalStateException("External job disappeared: " + snapshot.id()));
         if (job.status() != ExternalJobStatus.SUBMITTED && job.status() != ExternalJobStatus.RUNNING) {
@@ -70,7 +82,7 @@ public final class JobReconciler {
         switch (observed) {
             case RUNNING -> eventStore.append(event(task, step, TaskEventType.JOB_RUNNING, updatedJob, traceId, now));
             case SUCCEEDED -> markSucceeded(task, step, updatedJob, traceId, now);
-            case FAILED, CANCELLED, LOST -> markFailed(task, step, updatedJob, traceId, now);
+            case FAILED, CANCELLED, LOST -> markFailed(task, step, updatedJob, observation.failureType(), traceId, now);
             default -> throw new IllegalStateException("Unexpected reconciled status: " + observed);
         }
         return null;
@@ -105,16 +117,27 @@ public final class JobReconciler {
                 java.util.Map.of("ordinal", readyStep.ordinal()), traceId, now));
     }
 
-    private void markFailed(Task task, TaskStep step, ExternalJob job, String traceId, Instant now) {
+    private void markFailed(Task task, TaskStep step, ExternalJob job, FailureType failureType, String traceId, Instant now) {
         if (step.status() != StepStatus.WAITING_EXTERNAL) {
             throw new IllegalStateException("Terminal Job has non-waiting Step: " + step.id());
+        }
+        java.util.Optional<Instant> retryAt = retryPolicy.nextRetryAt(step, failureType, now);
+        TaskEventType type = job.status() == ExternalJobStatus.LOST ? TaskEventType.JOB_LOST : TaskEventType.STEP_FAILED;
+        eventStore.append(new TaskEvent(task.id(), step.id(), type,
+                java.util.Map.of("jobId", job.id().toString(), "failureType", failureType.name()), traceId, now));
+        if (retryAt.isPresent()) {
+            TaskStep retryingStep = step.scheduleRetry(retryAt.get(), now);
+            Task waiting = task.transitionTo(TaskStatus.WAITING, now);
+            taskStore.updateStep(retryingStep);
+            updateTask(waiting, task.version());
+            eventStore.append(new TaskEvent(task.id(), step.id(), TaskEventType.STEP_RETRY_SCHEDULED,
+                    java.util.Map.of("failureType", failureType.name(), "nextRetryAt", retryAt.get().toString()), traceId, now));
+            return;
         }
         TaskStep failedStep = step.transitionTo(StepStatus.FAILED, now);
         Task failed = task.transitionTo(TaskStatus.FAILED, now);
         taskStore.updateStep(failedStep);
         updateTask(failed, task.version());
-        TaskEventType type = job.status() == ExternalJobStatus.LOST ? TaskEventType.JOB_LOST : TaskEventType.STEP_FAILED;
-        eventStore.append(event(task, step, type, job, traceId, now));
     }
 
     private void updateTask(Task updated, long expectedVersion) {

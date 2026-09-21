@@ -15,6 +15,7 @@ public record TaskStep(
         int attempt,
         int maxAttempts,
         ResumeMode resumeMode,
+        Instant nextRetryAt,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -37,9 +38,16 @@ public record TaskStep(
         Objects.requireNonNull(updatedAt, "updatedAt is required");
     }
 
+    /** Compatibility constructor for steps that are not scheduled for retry. */
+    public TaskStep(UUID id, UUID taskId, int ordinal, StepType type, String name, StepStatus status,
+                    int attempt, int maxAttempts, ResumeMode resumeMode, Instant createdAt, Instant updatedAt) {
+        this(id, taskId, ordinal, type, name, status, attempt, maxAttempts, resumeMode, null, createdAt, updatedAt);
+    }
+
     public TaskStep transitionTo(StepStatus nextStatus, Instant at) {
         RuntimeStateMachine.requireStepTransition(status, nextStatus);
-        return new TaskStep(id, taskId, ordinal, type, name, nextStatus, attempt, maxAttempts, resumeMode, createdAt, at);
+        return new TaskStep(id, taskId, ordinal, type, name, nextStatus, attempt, maxAttempts, resumeMode,
+                nextStatus == StepStatus.READY ? null : nextRetryAt, createdAt, at);
     }
 
     public TaskStep dispatch(Instant at) {
@@ -48,6 +56,13 @@ public record TaskStep(
         }
         RuntimeStateMachine.requireStepTransition(status, StepStatus.DISPATCHING);
         return new TaskStep(id, taskId, ordinal, type, name, StepStatus.DISPATCHING, attempt + 1, maxAttempts,
-                resumeMode, createdAt, at);
+                resumeMode, null, createdAt, at);
+    }
+
+    public TaskStep scheduleRetry(Instant retryAt, Instant at) {
+        Objects.requireNonNull(retryAt, "retryAt is required");
+        RuntimeStateMachine.requireStepTransition(status, StepStatus.RETRY_WAIT);
+        return new TaskStep(id, taskId, ordinal, type, name, StepStatus.RETRY_WAIT, attempt, maxAttempts,
+                resumeMode, retryAt, createdAt, at);
     }
 }
