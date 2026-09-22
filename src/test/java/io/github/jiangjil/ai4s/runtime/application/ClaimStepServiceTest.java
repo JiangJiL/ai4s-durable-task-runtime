@@ -39,7 +39,7 @@ class ClaimStepServiceTest {
         assertEquals(StepStatus.RUNNING, fixture.store.step.status());
         assertEquals("worker-a", fixture.store.step.workerId());
         assertEquals(claimed.leaseToken(), fixture.store.step.leaseToken());
-        assertEquals(1, fixture.store.step.attempt());
+        assertEquals(0, fixture.store.step.attempt(), "领取 Lease 不是一次真实执行，不能消耗 attempt");
         assertEquals(TaskEventType.STEP_CLAIMED, fixture.events.events.get(0).type());
     }
 
@@ -62,7 +62,7 @@ class ClaimStepServiceTest {
         assertEquals("worker-b", fixture.store.step.workerId());
         assertNotEquals("old-token", takeover.leaseToken());
         assertThrows(LeaseConflictException.class, () -> fixture.store.step.requireActiveLease("old-token", now));
-        assertEquals(2, fixture.store.step.attempt());
+        assertEquals(0, fixture.store.step.attempt(), "接手过期 Lease 也不能额外消耗 attempt");
     }
 
     private Fixture fixture(TaskStep step) {

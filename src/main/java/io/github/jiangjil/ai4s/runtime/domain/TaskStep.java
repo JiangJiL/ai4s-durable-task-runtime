@@ -86,12 +86,12 @@ public record TaskStep(
         if (status != StepStatus.READY && status != StepStatus.RUNNING) {
             throw new IllegalStateException("只有 READY 或已领取的 RUNNING 步骤可以提交 Job: " + id);
         }
-        if (status == StepStatus.READY && attempt >= maxAttempts) {
+        if (attempt >= maxAttempts) {
             throw new IllegalStateException("No attempt remaining for step: " + id);
         }
         RuntimeStateMachine.requireStepTransition(status, StepStatus.DISPATCHING);
-        // 已被 Agent claim 的 Step 在 claim 时已消耗本次 attempt，不能在提交 Job 时再次递增。
-        int dispatchedAttempt = status == StepStatus.READY ? attempt + 1 : attempt;
+        // Job 提交才是实际外部执行，领取 Lease 本身不计入 attempt。
+        int dispatchedAttempt = attempt + 1;
         return new TaskStep(id, taskId, ordinal, type, name, StepStatus.DISPATCHING, dispatchedAttempt, maxAttempts,
                 resumeMode, input, output, error, checkpointUri, null, null, null, null, null, createdAt, at);
     }
@@ -112,11 +112,34 @@ public record TaskStep(
 
     /** 写入结构化失败事实；可重试失败会保留这些事实供下一次 attempt 和 Agent 分析。 */
     public TaskStep failWith(Map<String, Object> failure, StepStatus nextStatus, Instant retryAt, Instant at) {
+        return failWith(failure, nextStatus, retryAt, false, at);
+    }
+
+    /** 返回仅增加 attempt 的副本，供失败策略先判断预算是否耗尽。 */
+    public TaskStep consumeAttempt(Instant at) {
+        if (attempt >= maxAttempts) {
+            throw new IllegalStateException("步骤没有剩余 attempt: " + id);
+        }
+        return new TaskStep(id, taskId, ordinal, type, name, status, attempt + 1, maxAttempts, resumeMode,
+                input, output, error, checkpointUri, nextRetryAt, workerId, leaseToken, leaseExpiresAt, claimedAt,
+                createdAt, at);
+    }
+
+    /**
+     * 保存失败事实。仅真实执行失败才消耗 attempt；Lease 过期只是 Worker 写权限失效，
+     * 不能被误记为一次执行失败。
+     */
+    public TaskStep failWith(Map<String, Object> failure, StepStatus nextStatus, Instant retryAt,
+                             boolean consumeAttempt, Instant at) {
         if (nextStatus != StepStatus.RETRY_WAIT && nextStatus != StepStatus.FAILED) {
             throw new IllegalArgumentException("失败步骤只能进入 RETRY_WAIT 或 FAILED");
         }
         RuntimeStateMachine.requireStepTransition(status, nextStatus);
-        return new TaskStep(id, taskId, ordinal, type, name, nextStatus, attempt, maxAttempts, resumeMode,
+        int failedAttempt = consumeAttempt ? attempt + 1 : attempt;
+        if (failedAttempt > maxAttempts) {
+            throw new IllegalStateException("步骤没有剩余 attempt: " + id);
+        }
+        return new TaskStep(id, taskId, ordinal, type, name, nextStatus, failedAttempt, maxAttempts, resumeMode,
                 input, output, failure, checkpointUri, retryAt, null, null, null, null, createdAt, at);
     }
 
@@ -140,15 +163,13 @@ public record TaskStep(
         if (expiresAt == null || !expiresAt.isAfter(at)) {
             throw new IllegalArgumentException("leaseExpiresAt 必须晚于当前时间");
         }
-        if (attempt >= maxAttempts) {
-            throw new IllegalStateException("步骤没有剩余 attempt: " + id);
-        }
         if (status == StepStatus.READY) {
             RuntimeStateMachine.requireStepTransition(status, StepStatus.RUNNING);
         } else if (status != StepStatus.RUNNING || hasActiveLease(at)) {
             throw new LeaseConflictException("步骤不可领取或当前租约仍有效: " + id);
         }
-        return new TaskStep(id, taskId, ordinal, type, name, StepStatus.RUNNING, attempt + 1, maxAttempts,
+        // 领取只获取写权限。它不代表工具或代码真正执行过一次，不能消耗重试预算。
+        return new TaskStep(id, taskId, ordinal, type, name, StepStatus.RUNNING, attempt, maxAttempts,
                 resumeMode, input, output, error, checkpointUri, null, newWorkerId, newLeaseToken, expiresAt, at,
                 createdAt, at);
     }

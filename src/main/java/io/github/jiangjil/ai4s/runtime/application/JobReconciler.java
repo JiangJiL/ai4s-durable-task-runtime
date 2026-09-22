@@ -106,6 +106,7 @@ public final class JobReconciler {
         java.util.Map<String, Object> output = new java.util.HashMap<>(result);
         output.put("externalJobId", job.externalJobId());
         output.put("runtimeJobId", job.id().toString());
+        putIfPresent(output, "command", job.request().get("command"));
         TaskStep succeededStep = step.succeedWith(output, null, now);
         List<TaskStep> steps = taskStore.findSteps(task.id());
         TaskStep next = steps.stream().filter(candidate -> candidate.ordinal() > step.ordinal())
@@ -169,7 +170,19 @@ public final class JobReconciler {
         details.put("failureType", failureType.name());
         details.put("externalJobId", job.externalJobId());
         details.put("runtimeJobId", job.id().toString());
+        putIfPresent(details, "command", job.request().get("command"));
+        boolean environmentFailure = failureType == FailureType.ENVIRONMENT_FAILURE
+                || Boolean.TRUE.equals(details.get("environmentFailure"));
+        details.put("environmentFailure", environmentFailure);
+        details.putIfAbsent("attribution", environmentFailure ? "ENVIRONMENT" : "STEP_OR_UNKNOWN");
         return details;
+    }
+
+    /** JSON 结构化字段不允许 null；仅在执行器请求中确实有命令时才写入。 */
+    private static void putIfPresent(java.util.Map<String, Object> values, String key, Object value) {
+        if (value != null) {
+            values.putIfAbsent(key, value);
+        }
     }
 
     private static TaskEvent event(Task task, TaskStep step, TaskEventType type, ExternalJob job, String traceId, Instant now) {

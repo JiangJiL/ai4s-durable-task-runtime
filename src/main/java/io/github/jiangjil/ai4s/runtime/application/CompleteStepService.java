@@ -35,13 +35,39 @@ public final class CompleteStepService {
             TaskStep step = requireCurrentStep(task, command.stepId());
             Instant now = clock.instant();
             step.requireActiveLease(command.leaseToken(), now);
+            return completeVerified(task, step, command.receipt(), command.traceId(), now);
+        });
+    }
+
+    /**
+     * 受审计的补交完成。它只接受已过期 Lease 的当前 RUNNING Step，防止覆盖仍在工作的 Session。
+     * 传输层应在生产环境限制为管理员；MVP 先将 operatorId 与理由写入不可变事件账本。
+     */
+    public CompletionResult completeExpired(AmendExpiredStepCommand command) {
+        return transaction.required(() -> {
+            Task task = taskStore.findTask(command.taskId()).orElseThrow(() -> new TaskNotFoundException(command.taskId()));
+            TaskStep step = requireCurrentStep(task, command.stepId());
+            Instant now = clock.instant();
+            if (step.status() != StepStatus.RUNNING || step.hasActiveLease(now)) {
+                throw new IllegalStateException("只允许补交 Lease 已过期的 RUNNING 步骤: " + step.id());
+            }
+            eventStore.append(new TaskEvent(task.id(), step.id(), TaskEventType.STEP_RECEIPT_AMENDED,
+                    Map.of("operatorId", command.operatorId(), "rationale", command.rationale(),
+                            "expiredLeaseToken", step.leaseToken(), "receipt", command.receipt()),
+                    command.traceId(), now));
+            return completeVerified(task, step, command.receipt(), command.traceId(), now);
+        });
+    }
+
+    private CompletionResult completeVerified(Task task, TaskStep step, Map<String, Object> receipt,
+                                              String traceId, Instant now) {
             if (step.status() != StepStatus.RUNNING) {
                 throw new IllegalStateException("只有 RUNNING 的已领取步骤可以完成");
             }
-            TaskStep succeeded = step.succeedWith(command.receipt(), step.checkpointUri(), now);
+            TaskStep succeeded = step.succeedWith(receipt, step.checkpointUri(), now);
             taskStore.updateStep(succeeded);
             eventStore.append(new TaskEvent(task.id(), step.id(), TaskEventType.STEP_SUCCEEDED,
-                    Map.of("receipt", command.receipt()), command.traceId(), now));
+                    Map.of("receipt", receipt), traceId, now));
 
             TaskStep next = taskStore.findSteps(task.id()).stream()
                     .filter(candidate -> candidate.ordinal() > step.ordinal())
@@ -49,7 +75,7 @@ public final class CompleteStepService {
             if (next == null) {
                 Task completed = task.transitionTo(TaskStatus.SUCCEEDED, now);
                 updateTask(completed, task.version());
-                eventStore.append(new TaskEvent(task.id(), null, TaskEventType.TASK_COMPLETED, Map.of(), command.traceId(), now));
+                eventStore.append(new TaskEvent(task.id(), null, TaskEventType.TASK_COMPLETED, Map.of(), traceId, now));
                 return new CompletionResult(succeeded, null, completed);
             }
             if (next.status() != StepStatus.PENDING) {
@@ -60,9 +86,8 @@ public final class CompleteStepService {
             updateTask(advanced, task.version());
             taskStore.updateStep(ready);
             eventStore.append(new TaskEvent(task.id(), ready.id(), TaskEventType.STEP_READY,
-                    Map.of("ordinal", ready.ordinal()), command.traceId(), now));
+                    Map.of("ordinal", ready.ordinal()), traceId, now));
             return new CompletionResult(succeeded, ready, advanced);
-        });
     }
 
     private TaskStep requireCurrentStep(Task task, java.util.UUID stepId) {

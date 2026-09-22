@@ -69,11 +69,16 @@ public final class LocalCodingJobAdapter implements ExternalJobAdapter {
                 int exitCode = Integer.parseInt(Files.readString(completion, StandardCharsets.UTF_8).trim());
                 Map<String, Object> result = Map.of(
                         "exitCode", exitCode,
+                        "command", requiredCommand(job.request()),
                         "logUri", output(job.externalJobId()).toUri().toString(),
-                        "completionUri", completion.toUri().toString());
+                        "completionUri", completion.toUri().toString(),
+                        "environmentFailure", declaredEnvironmentFailure(job.request()),
+                        "attribution", declaredEnvironmentFailure(job.request()) ? "ENVIRONMENT" : "STEP_OR_UNKNOWN");
                 return exitCode == 0
                         ? new ExternalJobObservation(ExternalJobStatus.SUCCEEDED, null, result)
-                        : new ExternalJobObservation(ExternalJobStatus.FAILED, FailureType.APPLICATION_ERROR, result);
+                        : new ExternalJobObservation(ExternalJobStatus.FAILED,
+                        declaredEnvironmentFailure(job.request()) ? FailureType.ENVIRONMENT_FAILURE : FailureType.APPLICATION_ERROR,
+                        result);
             }
             Path marker = marker(job.externalJobId());
             if (!Files.exists(marker)) {
@@ -102,6 +107,14 @@ public final class LocalCodingJobAdapter implements ExternalJobAdapter {
             throw new IllegalArgumentException("Local Coding Job request requires a nonblank command");
         }
         return value;
+    }
+
+    /**
+     * Runtime 不猜测构建日志归因。提交方或外部执行器可在已确认基线环境失败时明确标注，
+     * 该事实会随 receipt 进入 Step.error，避免误判为本次代码改动失败。
+     */
+    private static boolean declaredEnvironmentFailure(Map<String, Object> request) {
+        return Boolean.TRUE.equals(request.get("environmentFailure"));
     }
 
     private static String sha256(String value) {

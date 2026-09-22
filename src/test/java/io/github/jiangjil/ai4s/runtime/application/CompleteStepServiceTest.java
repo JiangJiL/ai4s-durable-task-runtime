@@ -65,6 +65,24 @@ class CompleteStepServiceTest {
         assertEquals(StepStatus.RUNNING, store.steps.get(0).status());
     }
 
+    @Test
+    void administratorCanAmendReceiptOnlyAfterLeaseExpires() {
+        UUID taskId = UUID.randomUUID();
+        TaskStep expired = new TaskStep(UUID.randomUUID(), taskId, 1, StepType.AGENT_DECISION, "Implement", StepStatus.READY,
+                0, 1, ResumeMode.RESTART_STEP, now, now).claim("worker", "expired-token", now.minusSeconds(1), now.minusSeconds(301));
+        InMemoryTaskStore store = new InMemoryTaskStore(new Task(taskId, "Goal", TaskStatus.RUNNING, expired.id(), 1, now, now), List.of(expired));
+        CapturingEventStore events = new CapturingEventStore();
+        CompleteStepService service = new CompleteStepService(store, events, new DirectTransaction(), Clock.fixed(now, ZoneOffset.UTC));
+
+        CompleteStepService.CompletionResult result = service.completeExpired(new AmendExpiredStepCommand(taskId, expired.id(),
+                "runtime-admin", "Agent finished before session interruption", Map.of("summary", "implemented"), "trace-amend"));
+
+        assertEquals(TaskStatus.SUCCEEDED, result.task().status());
+        assertEquals(StepStatus.SUCCEEDED, store.steps.get(0).status());
+        assertEquals(List.of(TaskEventType.STEP_RECEIPT_AMENDED, TaskEventType.STEP_SUCCEEDED, TaskEventType.TASK_COMPLETED),
+                events.events.stream().map(TaskEvent::type).toList());
+    }
+
     private static final class DirectTransaction implements RuntimeTransaction {
         @Override public <T> T required(Supplier<T> work) { return work.get(); }
     }

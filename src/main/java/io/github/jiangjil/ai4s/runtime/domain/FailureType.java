@@ -9,6 +9,8 @@ public enum FailureType {
     INVALID_INPUT(false),
     AUTH_ERROR(false),
     OOM(false),
+    /** 项目基线、依赖、SDK 或执行环境问题；不能自动归咎于当前步骤改动。 */
+    ENVIRONMENT_FAILURE(false),
     USER_CANCELLED(false),
     UNKNOWN(false);
 

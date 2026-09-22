@@ -43,9 +43,11 @@ public final class FailStepService {
             step.requireActiveLease(command.leaseToken(), now);
             Map<String, Object> details = new HashMap<>(command.details());
             details.put("failureType", command.failureType().name());
-            java.util.Optional<Instant> retryAt = retryPolicy.nextRetryAt(step, command.failureType(), now);
+            // Agent 明确提交失败才算一次执行尝试；租约自然过期不会进入本服务。
+            TaskStep failedAttempt = step.consumeAttempt(now);
+            java.util.Optional<Instant> retryAt = retryPolicy.nextRetryAt(failedAttempt, command.failureType(), now);
             if (retryAt.isPresent()) {
-                TaskStep retrying = step.failWith(details, StepStatus.RETRY_WAIT, retryAt.get(), now);
+                TaskStep retrying = failedAttempt.failWith(details, StepStatus.RETRY_WAIT, retryAt.get(), false, now);
                 Task waiting = task.transitionTo(TaskStatus.WAITING, now);
                 taskStore.updateStep(retrying);
                 updateTask(waiting, task.version());
@@ -54,7 +56,7 @@ public final class FailStepService {
                         command.traceId(), now));
                 return new FailureResult(retrying, waiting);
             }
-            TaskStep failed = step.failWith(details, StepStatus.FAILED, null, now);
+            TaskStep failed = failedAttempt.failWith(details, StepStatus.FAILED, null, false, now);
             Task failedTask = task.transitionTo(TaskStatus.FAILED, now);
             taskStore.updateStep(failed);
             updateTask(failedTask, task.version());

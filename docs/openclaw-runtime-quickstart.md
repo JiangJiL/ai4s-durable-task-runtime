@@ -68,13 +68,45 @@ runtime_list_active_tasks(limit=20)
 4. S003 的真实结果由 Outbox/Reconciler 回写后才推进 S004；
 5. Task Event 能完整解释发生过的状态迁移。
 
+## 两个真实运行边界
+
+### Lease 过期不是失败
+
+Lease 只保护“当前哪个 Session 可以回写状态”。它过期后，新的 Session 可以重新 `runtime_claim_step`；
+**不会消耗 `attempt`**。只有两类事实会消耗 attempt：
+
+- Agent 使用 `runtime_fail_step` 明确报告执行失败；
+- `ASYNC_JOB` 真正进入 dispatch，创建外部执行意图。
+
+若工作已经完成、但旧会话在 Lease 到期后无法提交 receipt，受信任的管理员可调用：
+
+```text
+runtime_admin_complete_expired_step(taskId, stepId, operatorId, rationale, receipt, traceId)
+```
+
+它只能处理当前、`RUNNING` 且 Lease 已过期的步骤；Runtime 会记录操作者、理由与 receipt 的审计事件，不能覆盖有效 Lease。
+
+### 构建环境失败不是代码失败
+
+`ASYNC_JOB` receipt 会保存原始 `command`、`exitCode`、`logUri`、`environmentFailure` 与 `attribution`。
+已确认是项目基线依赖、SDK 或构建环境问题时，提交 Job 时显式附带：
+
+```json
+{
+  "command": "mvn test",
+  "environmentFailure": true
+}
+```
+
+失败将标为 `ENVIRONMENT_FAILURE`，不会自动重试，也不会误写成当前业务步骤实现失败。
+
 ## MCP Tool 最小集合
 
 | 阶段 | Tool |
 |---|---|
 | 发现/恢复 | `runtime_list_active_tasks`、`runtime_claim_step`、`runtime_get_context` |
 | 创建 | `runtime_create_task`、`runtime_start_task` |
-| 执行结束 | `runtime_complete_step`、`runtime_fail_step`、`runtime_pause_task` |
+| 执行结束 | `runtime_complete_step`、`runtime_fail_step`、`runtime_pause_task`、`runtime_admin_complete_expired_step`（仅受信任管理员） |
 | 长 Job | `runtime_submit_async_job` |
 | 长步骤保护 | `runtime_renew_lease`、`runtime_save_checkpoint` |
 

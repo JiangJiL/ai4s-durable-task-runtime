@@ -4,6 +4,7 @@ import io.github.jiangjil.ai4s.runtime.application.ClaimStepCommand;
 import io.github.jiangjil.ai4s.runtime.application.ClaimStepService;
 import io.github.jiangjil.ai4s.runtime.application.CompleteStepCommand;
 import io.github.jiangjil.ai4s.runtime.application.CompleteStepService;
+import io.github.jiangjil.ai4s.runtime.application.AmendExpiredStepCommand;
 import io.github.jiangjil.ai4s.runtime.application.CreateStepDefinition;
 import io.github.jiangjil.ai4s.runtime.application.CreateTaskCommand;
 import io.github.jiangjil.ai4s.runtime.application.CreateTaskService;
@@ -140,6 +141,25 @@ public class DurableRuntimeMcpTools {
                 result.nextReadyStep() == null ? null : result.nextReadyStep().name());
     }
 
+    /**
+     * 管理员补交已过期 Lease 的真实完成事实。MVP 使用可信本地 MCP；生产环境必须在 MCP 网关
+     * 对此工具施加管理员身份认证。Runtime 会把操作者、理由和 receipt 追加到审计事件中。
+     */
+    @Tool(name = "runtime_admin_complete_expired_step", description = "Audited administrator completion for a current RUNNING step whose lease has expired. It cannot override an active lease.")
+    public StepCompleted runtimeAdminCompleteExpiredStep(
+            @ToolParam(description = "Runtime task ID", required = true) String taskId,
+            @ToolParam(description = "Expired current step ID", required = true) String stepId,
+            @ToolParam(description = "Administrator or operator identifier", required = true) String operatorId,
+            @ToolParam(description = "Why normal receipt submission was impossible", required = true) String rationale,
+            @ToolParam(description = "Structured completion receipt", required = true) Map<String, Object> receipt,
+            @ToolParam(description = "Trace identifier for audit events", required = true) String traceId) {
+        CompleteStepService.CompletionResult result = completeStepService.completeExpired(
+                new AmendExpiredStepCommand(uuid(taskId), uuid(stepId), operatorId, rationale, receipt, traceId));
+        return new StepCompleted(result.completedStep().id().toString(), result.task().status().name(),
+                result.nextReadyStep() == null ? null : result.nextReadyStep().id().toString(),
+                result.nextReadyStep() == null ? null : result.nextReadyStep().name());
+    }
+
     /** 失败事实结构化入库；是否 retry 由 Runtime Policy 而不是 Agent 自由决定。 */
     @Tool(name = "runtime_fail_step", description = "Record a structured failure for the leased step. Runtime decides retry or terminal failure.")
     public StepFailed runtimeFailStep(
@@ -161,7 +181,7 @@ public class DurableRuntimeMcpTools {
             @ToolParam(description = "Current ASYNC_JOB step ID", required = true) String stepId,
             @ToolParam(description = "Active lease token", required = true) String leaseToken,
             @ToolParam(description = "Job provider, for MVP use LOCAL_CODING", required = true) String provider,
-            @ToolParam(description = "Job request, for LOCAL_CODING include command", required = true) Map<String, Object> request,
+            @ToolParam(description = "Job request; for LOCAL_CODING include command. Set environmentFailure=true only when a known baseline environment issue is confirmed.", required = true) Map<String, Object> request,
             @ToolParam(description = "Trace identifier for audit events", required = true) String traceId) {
         UUID jobId = requestAsyncJobService.request(new RequestAsyncJobCommand(uuid(taskId), uuid(stepId), leaseToken,
                 provider, request, traceId));
