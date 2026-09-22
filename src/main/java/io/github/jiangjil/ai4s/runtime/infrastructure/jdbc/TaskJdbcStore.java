@@ -24,8 +24,9 @@ public class TaskJdbcStore implements TaskStore {
     private static final String INSERT_STEP = """
             INSERT INTO task_step (id, task_id, ordinal, step_type, step_name, status, input_json, output_json,
                                    error_json, attempt, max_attempts, resume_mode, checkpoint_uri, next_retry_at,
+                                   worker_id, lease_token, lease_expires_at, claimed_at,
                                    started_at, finished_at, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
     private static final String FIND_TASK = """
             SELECT id, goal, status, current_step_id, version, created_at, updated_at
@@ -33,12 +34,14 @@ public class TaskJdbcStore implements TaskStore {
             """;
     private static final String FIND_STEPS = """
             SELECT id, task_id, ordinal, step_type, step_name, status, input_json, output_json, error_json, checkpoint_uri,
-                   attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
+                   attempt, max_attempts, resume_mode, next_retry_at, worker_id, lease_token, lease_expires_at, claimed_at,
+                   created_at, updated_at
             FROM task_step WHERE task_id = ? ORDER BY ordinal
             """;
     private static final String FIND_STEP = """
             SELECT id, task_id, ordinal, step_type, step_name, status, input_json, output_json, error_json, checkpoint_uri,
-                   attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
+                   attempt, max_attempts, resume_mode, next_retry_at, worker_id, lease_token, lease_expires_at, claimed_at,
+                   created_at, updated_at
             FROM task_step WHERE id = ?
             """;
     private static final String UPDATE_TASK = """
@@ -47,11 +50,13 @@ public class TaskJdbcStore implements TaskStore {
             """;
     private static final String UPDATE_STEP = """
             UPDATE task_step SET status = ?, input_json = ?, output_json = ?, error_json = ?, checkpoint_uri = ?,
-                                 attempt = ?, next_retry_at = ?, updated_at = ? WHERE id = ?
+                                 attempt = ?, next_retry_at = ?, worker_id = ?, lease_token = ?, lease_expires_at = ?,
+                                 claimed_at = ?, updated_at = ? WHERE id = ?
             """;
     private static final String FIND_RETRY_DUE = """
             SELECT id, task_id, ordinal, step_type, step_name, status, input_json, output_json, error_json, checkpoint_uri,
-                   attempt, max_attempts, resume_mode, next_retry_at, created_at, updated_at
+                   attempt, max_attempts, resume_mode, next_retry_at, worker_id, lease_token, lease_expires_at, claimed_at,
+                   created_at, updated_at
             FROM task_step WHERE status = 'RETRY_WAIT' AND next_retry_at <= ? ORDER BY next_retry_at LIMIT ?
             """;
 
@@ -74,7 +79,9 @@ public class TaskJdbcStore implements TaskStore {
                     step.id().toString(), step.taskId().toString(), step.ordinal(), step.type().name(), step.name(),
                     step.status().name(), serialize(step.input()), serialize(step.output()), serialize(step.error()),
                     step.attempt(), step.maxAttempts(), step.resumeMode().name(), step.checkpointUri(),
-                    nullableTimestamp(step.nextRetryAt()), null, null, Timestamp.from(step.createdAt()), Timestamp.from(step.updatedAt()));
+                    nullableTimestamp(step.nextRetryAt()), step.workerId(), step.leaseToken(),
+                    nullableTimestamp(step.leaseExpiresAt()), nullableTimestamp(step.claimedAt()), null, null,
+                    Timestamp.from(step.createdAt()), Timestamp.from(step.updatedAt()));
         }
     }
 
@@ -114,6 +121,7 @@ public class TaskJdbcStore implements TaskStore {
     public void updateStep(TaskStep step) {
         jdbcTemplate.update(UPDATE_STEP, step.status().name(), serialize(step.input()), serialize(step.output()),
                 serialize(step.error()), step.checkpointUri(), step.attempt(), nullableTimestamp(step.nextRetryAt()),
+                step.workerId(), step.leaseToken(), nullableTimestamp(step.leaseExpiresAt()), nullableTimestamp(step.claimedAt()),
                 Timestamp.from(step.updatedAt()), step.id().toString());
     }
 
@@ -126,7 +134,9 @@ public class TaskJdbcStore implements TaskStore {
                 io.github.jiangjil.ai4s.runtime.domain.ResumeMode.valueOf(resultSet.getString("resume_mode")),
                 deserialize(resultSet.getString("input_json")), deserialize(resultSet.getString("output_json")),
                 deserialize(resultSet.getString("error_json")), resultSet.getString("checkpoint_uri"),
-                nullableInstant(resultSet.getTimestamp("next_retry_at")), resultSet.getTimestamp("created_at").toInstant(),
+                nullableInstant(resultSet.getTimestamp("next_retry_at")), resultSet.getString("worker_id"),
+                resultSet.getString("lease_token"), nullableInstant(resultSet.getTimestamp("lease_expires_at")),
+                nullableInstant(resultSet.getTimestamp("claimed_at")), resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant());
     }
 

@@ -25,24 +25,25 @@
 
 ## 2. 架构与 Transport
 
-Runtime 继续作为 Spring Boot 应用运行，并增加 Stateless Streamable HTTP MCP Endpoint：
+Runtime 继续作为 Spring Boot 应用运行，并增加 MCP SSE Endpoint：
 
 ```text
 OpenClaw 专用 Worker
   └─ MCP client: ai4s-runtime
-       └─ Streamable HTTP → http://127.0.0.1:8080/mcp
+       └─ SSE → http://127.0.0.1:8080/mcp/sse
             └─ AI4S Durable Runtime
                  └─ MySQL（Task/Step/Event/Job/Lease）
 ```
 
-选择 Stateless Streamable HTTP 的理由：
+选择 SSE 的理由：
 
-- OpenClaw 原生支持 `streamable-http` MCP transport；
+- OpenClaw 原生支持 `sse` MCP transport；
+- 当前 Spring Boot 3.4.x/Jackson 2 基线可稳定使用 Spring AI 1.0.x WebMVC SSE Server；
 - MCP 连接不保存任务事实；任务事实始终保存在 MySQL；
 - OpenClaw Session、MCP 连接或 Runtime 进程中断后，不需要恢复传输会话；
 - 首版不要求 Runtime 从 MCP 侧主动推送消息给 Agent。
 
-Runtime 仅监听 loopback 地址。首版使用本机无鉴权连接；若需要跨主机访问，必须在 MCP 前增加认证和 TLS，而不是暴露当前端口。
+Runtime 仅监听 loopback 地址。首版使用本机无鉴权连接；若需要跨主机访问，必须在 MCP 前增加认证和 TLS，而不是暴露当前端口。SSE transport 会维护连接，但业务状态不依赖该连接。
 
 ## 3. 专用验证 Agent
 
@@ -177,7 +178,7 @@ Agent 必须先 claim，再读取 context。若没有可领取的 Agent Step，�
 - Lease claim、续约、到期接手、旧 token 拒绝；
 - Tool 参数映射与错误码；
 - `complete/fail/submitJob` 的 lease 校验；
-- MCP client 调用 Runtime 的 Streamable HTTP 集成测试；
+- MCP client 调用 Runtime 的 SSE 集成测试；
 - 现有 MySQL/Flyway、Outbox、Reconcile 测试保持通过。
 
 ### 人工端到端验证

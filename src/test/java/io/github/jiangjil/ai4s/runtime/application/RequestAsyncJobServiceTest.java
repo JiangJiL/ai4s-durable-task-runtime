@@ -35,16 +35,19 @@ class RequestAsyncJobServiceTest {
         Instant now = Instant.parse("2026-09-21T00:00:00Z");
         UUID taskId = UUID.randomUUID();
         UUID stepId = UUID.randomUUID();
+        TaskStep readyStep = new TaskStep(stepId, taskId, 1, StepType.ASYNC_JOB, "Run tests", StepStatus.READY, 0, 3,
+                ResumeMode.RESTART_STEP, now, now);
+        TaskStep claimedStep = readyStep.claim("test-worker", "lease-token", now.plusSeconds(300), now);
         InMemoryTaskStore taskStore = new InMemoryTaskStore(new Task(taskId, "Goal", TaskStatus.RUNNING, stepId, 1, now, now),
-                new TaskStep(stepId, taskId, 1, StepType.ASYNC_JOB, "Run tests", StepStatus.READY, 0, 3,
-                        ResumeMode.RESTART_STEP, now, now));
+                claimedStep);
         CapturingExternalJobStore jobs = new CapturingExternalJobStore();
         CapturingOutboxStore outbox = new CapturingOutboxStore();
         CapturingEventStore events = new CapturingEventStore();
         RequestAsyncJobService service = new RequestAsyncJobService(taskStore, jobs, outbox, events,
                 new DirectTransaction(), Clock.fixed(now, ZoneOffset.UTC));
 
-        UUID jobId = service.request(new RequestAsyncJobCommand(taskId, stepId, "local-shell", Map.of("command", "mvn test"), "trace-job"));
+        UUID jobId = service.request(new RequestAsyncJobCommand(taskId, stepId, "lease-token", "local-shell",
+                Map.of("command", "mvn test"), "trace-job"));
 
         assertNotNull(jobId);
         assertEquals(StepStatus.DISPATCHING, taskStore.step.status());

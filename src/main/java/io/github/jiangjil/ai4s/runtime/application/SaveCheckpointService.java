@@ -44,6 +44,7 @@ public final class SaveCheckpointService {
                 throw new IllegalStateException("该步骤未声明 CHECKPOINT 恢复能力");
             }
             Instant now = clock.instant();
+            step.requireActiveLease(command.leaseToken(), now);
             Checkpoint checkpoint = new Checkpoint(UUID.randomUUID(), step.id(), command.kind(), command.uri(), command.metadata(), now);
             checkpointStore.insert(checkpoint);
             taskStore.updateStep(step.withCheckpoint(checkpoint.uri(), now));

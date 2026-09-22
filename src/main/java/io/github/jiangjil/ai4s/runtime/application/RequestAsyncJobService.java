@@ -56,6 +56,7 @@ public final class RequestAsyncJobService {
             }
 
             Instant now = clock.instant();
+            step.requireActiveLease(command.leaseToken(), now);
             TaskStep dispatchingStep = step.dispatch(now);
             Task updatedTask = task.recordActivity(now);
             String idempotencyKey = task.id() + ":" + step.id() + ":A" + String.format("%02d", dispatchingStep.attempt());

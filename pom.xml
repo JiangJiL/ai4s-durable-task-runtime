@@ -19,7 +19,22 @@
 
     <properties>
         <java.version>17</java.version>
+        <!-- Spring AI 1.0.x 与项目的 Spring Boot 3.4.x / Jackson 2 基线兼容。 -->
+        <spring-ai.version>1.0.9</spring-ai.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring AI 负责 MCP 协议与 transport；领域状态机仍保持纯 Java。 -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -29,6 +44,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <!-- 将 Runtime 的受限 Intent 暴露为 SSE MCP Tools；Spring AI 1.0.x 与 Boot 3.4 兼容。 -->
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

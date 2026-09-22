@@ -18,7 +18,8 @@ public final class RuntimeContextBuilder {
         TaskStep current = state.currentStep();
         TaskStep lastSuccessful = state.lastSuccessfulStep();
         return new RuntimeContext(task.id(), task.goal(), task.status().name(), current == null ? null : StepContext.from(current),
-                lastSuccessful == null ? null : StepContext.from(lastSuccessful), permittedActions(current), state.steps());
+                lastSuccessful == null ? null : StepContext.from(lastSuccessful), permittedActions(current),
+                state.steps().stream().map(StepContext::from).toList());
     }
 
     /** MVP 中允许运行的动作由当前状态机确定，而不是让模型自由发挥。 */
@@ -28,8 +29,18 @@ public final class RuntimeContextBuilder {
         }
         return switch (current.status()) {
             case READY -> readyActions(current);
-            case DISPATCHING, WAITING_EXTERNAL, RUNNING -> List.of("RECONCILE_EXTERNAL_JOB", "PAUSE", "MARK_FAILED");
+            case RUNNING -> runningActions(current);
+            case DISPATCHING, WAITING_EXTERNAL -> List.of("RECONCILE_EXTERNAL_JOB", "PAUSE", "MARK_FAILED");
             case RETRY_WAIT -> List.of("WAIT_FOR_RETRY", "PAUSE", "MARK_FAILED");
+            default -> List.of("READ_TASK_STATE");
+        };
+    }
+
+    /** 已领取步骤只暴露其类型允许的 Intent，避免 Agent 任意修改 Runtime State。 */
+    private static List<String> runningActions(TaskStep current) {
+        return switch (current.type()) {
+            case AGENT_DECISION, TOOL_CALL -> List.of("COMPLETE_STEP", "FAIL_STEP", "SAVE_CHECKPOINT", "RENEW_LEASE", "PAUSE");
+            case ASYNC_JOB -> List.of("SUBMIT_ASYNC_JOB", "FAIL_STEP", "RENEW_LEASE", "PAUSE");
             default -> List.of("READ_TASK_STATE");
         };
     }
@@ -48,7 +59,7 @@ public final class RuntimeContextBuilder {
 
     /** 这是 Agent 需要的结构化事实，不是 Conversation 摘要。 */
     public record RuntimeContext(UUID taskId, String taskGoal, String taskStatus, StepContext currentStep,
-                                 StepContext lastSuccessfulStep, List<String> allowedActions, List<TaskStep> allSteps) {
+                                 StepContext lastSuccessfulStep, List<String> allowedActions, List<StepContext> allSteps) {
         public RuntimeContext {
             allowedActions = List.copyOf(allowedActions);
             allSteps = List.copyOf(allSteps);
@@ -58,11 +69,13 @@ public final class RuntimeContextBuilder {
     /** 当前 Step 的 Required Context：输入、输出、错误与检查点均来自 Runtime DB。 */
     public record StepContext(UUID stepId, int ordinal, String stepType, String stepName, String status,
                               int attempt, int maxAttempts, String resumeMode, Map<String, Object> input,
-                              Map<String, Object> output, Map<String, Object> error, String checkpointUri) {
+                              Map<String, Object> output, Map<String, Object> error, String checkpointUri,
+                              String workerId, String leaseExpiresAt) {
         static StepContext from(TaskStep step) {
             return new StepContext(step.id(), step.ordinal(), step.type().name(), step.name(), step.status().name(),
                     step.attempt(), step.maxAttempts(), step.resumeMode().name(), step.input(), step.output(),
-                    step.error(), step.checkpointUri());
+                    step.error(), step.checkpointUri(), step.workerId(),
+                    step.leaseExpiresAt() == null ? null : step.leaseExpiresAt().toString());
         }
     }
 }

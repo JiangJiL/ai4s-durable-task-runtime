@@ -8,6 +8,7 @@ import java.util.UUID;
 public record RequestAsyncJobCommand(
         UUID taskId,
         UUID stepId,
+        String leaseToken,
         String provider,
         Map<String, Object> request,
         String traceId) {
@@ -15,8 +16,9 @@ public record RequestAsyncJobCommand(
     public RequestAsyncJobCommand {
         Objects.requireNonNull(taskId, "taskId is required");
         Objects.requireNonNull(stepId, "stepId is required");
-        if (provider == null || provider.isBlank() || traceId == null || traceId.isBlank()) {
-            throw new IllegalArgumentException("provider and traceId are required");
+        if (leaseToken == null || leaseToken.isBlank() || provider == null || provider.isBlank()
+                || traceId == null || traceId.isBlank()) {
+            throw new IllegalArgumentException("leaseToken、provider 和 traceId 不能为空");
         }
         request = Map.copyOf(request == null ? Map.of() : request);
     }

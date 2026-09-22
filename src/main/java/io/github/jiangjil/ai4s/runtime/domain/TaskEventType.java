@@ -4,7 +4,11 @@ package io.github.jiangjil.ai4s.runtime.domain;
 public enum TaskEventType {
     TASK_CREATED,
     TASK_STARTED,
+    TASK_PAUSED,
+    TASK_RESUMED,
     STEP_READY,
+    STEP_CLAIMED,
+    STEP_LEASE_RENEWED,
     STEP_STARTED,
     JOB_SUBMISSION_REQUESTED,
     JOB_SUBMITTED,

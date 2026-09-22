@@ -1,14 +1,32 @@
+server:
+  # 首版 MCP 只允许本机 OpenClaw 连接，不能把无鉴权 Runtime 暴露到局域网。
+  address: 127.0.0.1
+
 spring:
   application:
     name: durable-task-runtime
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/ai4s_durable_runtime?allowPublicKeyRetrieval=true&useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&serverTimezone=GMT%2B8
     username: root
-    password: ${RUNTIME_DB_PASSWORD}
+    # 由 OpenClaw Secret Store 注入；不在仓库、本地命令或日志中保存数据库密码。
+    password: ${AI4S_MYSQL_ROOT_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   flyway:
     enabled: true
     locations: classpath:db/migration
+  ai:
+    mcp:
+      server:
+        # Boot 3.4 基线采用 MCP SSE transport；Task/Step/Lease 的唯一事实仍在 MySQL。
+        name: ai4s-durable-runtime
+        version: 0.1.0
+        instructions: "Use Runtime tools to claim and record durable task execution. Never infer current task state from conversation or project files."
+        capabilities:
+          resource: false
+          prompt: false
+          completion: false
+        sse-endpoint: /mcp/sse
+        sse-message-endpoint: /mcp/message
 
 runtime:
   # 本地 Coding Job 的持久化注册表；它独立于 Runtime 进程，用于跨重启保持幂等映射。

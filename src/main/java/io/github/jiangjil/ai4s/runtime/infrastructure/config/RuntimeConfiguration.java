@@ -2,6 +2,7 @@ package io.github.jiangjil.ai4s.runtime.infrastructure.config;
 
 import io.github.jiangjil.ai4s.runtime.application.ExponentialRetryPolicy;
 import io.github.jiangjil.ai4s.runtime.application.GetTaskRuntimeStateService;
+import io.github.jiangjil.ai4s.runtime.application.GetClaimedRuntimeContextService;
 import io.github.jiangjil.ai4s.runtime.application.RuntimeContextBuilder;
 import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointService;
 import io.github.jiangjil.ai4s.runtime.application.ExternalJobCallbackService;
@@ -9,6 +10,12 @@ import io.github.jiangjil.ai4s.runtime.application.JobReconciler;
 import io.github.jiangjil.ai4s.runtime.application.OutboxWorker;
 import io.github.jiangjil.ai4s.runtime.application.ReleaseRetryService;
 import io.github.jiangjil.ai4s.runtime.application.CreateTaskService;
+import io.github.jiangjil.ai4s.runtime.application.ClaimStepService;
+import io.github.jiangjil.ai4s.runtime.application.CompleteStepService;
+import io.github.jiangjil.ai4s.runtime.application.FailStepService;
+import io.github.jiangjil.ai4s.runtime.application.RenewLeaseService;
+import io.github.jiangjil.ai4s.runtime.application.PauseTaskService;
+import io.github.jiangjil.ai4s.runtime.application.ResumeTaskService;
 import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobService;
 import io.github.jiangjil.ai4s.runtime.application.RetryPolicy;
 import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
@@ -20,6 +27,9 @@ import io.github.jiangjil.ai4s.runtime.application.port.RuntimeTransaction;
 import io.github.jiangjil.ai4s.runtime.application.port.TaskEventStore;
 import io.github.jiangjil.ai4s.runtime.application.port.TaskStore;
 import io.github.jiangjil.ai4s.runtime.infrastructure.local.LocalCodingJobAdapter;
+import io.github.jiangjil.ai4s.runtime.infrastructure.mcp.DurableRuntimeMcpTools;
+import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +44,15 @@ import java.time.Duration;
  */
 @Configuration
 public class RuntimeConfiguration {
+
+    /**
+     * Spring AI 1.0.x 通过 ToolCallbackProvider 把 @Tool 方法发布成 MCP Tool。
+     * 该适配层不承载 Runtime 状态；状态与 Lease 仍由下方应用服务负责。
+     */
+    @Bean
+    ToolCallbackProvider durableRuntimeMcpToolCallbackProvider(DurableRuntimeMcpTools durableRuntimeMcpTools) {
+        return MethodToolCallbackProvider.builder().toolObjects(durableRuntimeMcpTools).build();
+    }
 
     /** 统一时钟可在单元测试中替换，避免直接散落调用系统时间。 */
     @Bean
@@ -61,6 +80,46 @@ public class RuntimeConfiguration {
         return new CreateTaskService(taskStore, eventStore, transaction, runtimeClock);
     }
 
+    /** Worker 领取步骤的 Lease 由 Runtime 事务管理，不能由 OpenClaw Session 自行维护。 */
+    @Bean
+    ClaimStepService claimStepService(TaskStore taskStore, TaskEventStore eventStore,
+                                      RuntimeTransaction transaction, Clock runtimeClock) {
+        return new ClaimStepService(taskStore, eventStore, transaction, runtimeClock);
+    }
+
+    /** Agent 只能用有效 leaseToken 完成步骤；Runtime 决定下一步骤何时 READY。 */
+    @Bean
+    CompleteStepService completeStepService(TaskStore taskStore, TaskEventStore eventStore,
+                                            RuntimeTransaction transaction, Clock runtimeClock) {
+        return new CompleteStepService(taskStore, eventStore, transaction, runtimeClock);
+    }
+
+    /** Agent 记录失败事实，重试与终态由统一策略而非模型记忆决定。 */
+    @Bean
+    FailStepService failStepService(TaskStore taskStore, TaskEventStore eventStore,
+                                    RuntimeTransaction transaction, RetryPolicy retryPolicy, Clock runtimeClock) {
+        return new FailStepService(taskStore, eventStore, transaction, retryPolicy, runtimeClock);
+    }
+
+    /** 长 Agent Step 可续约；进程死亡后等待租约到期即可安全接手。 */
+    @Bean
+    RenewLeaseService renewLeaseService(TaskStore taskStore, TaskEventStore eventStore,
+                                        RuntimeTransaction transaction, Clock runtimeClock) {
+        return new RenewLeaseService(taskStore, eventStore, transaction, runtimeClock);
+    }
+
+    @Bean
+    PauseTaskService pauseTaskService(TaskStore taskStore, TaskEventStore eventStore,
+                                      RuntimeTransaction transaction, Clock runtimeClock) {
+        return new PauseTaskService(taskStore, eventStore, transaction, runtimeClock);
+    }
+
+    @Bean
+    ResumeTaskService resumeTaskService(TaskStore taskStore, TaskEventStore eventStore,
+                                        RuntimeTransaction transaction, Clock runtimeClock) {
+        return new ResumeTaskService(taskStore, eventStore, transaction, runtimeClock);
+    }
+
     /** 状态查询只读 Runtime DB，是 Active State 的唯一事实入口。 */
     @Bean
     GetTaskRuntimeStateService getTaskRuntimeStateService(TaskStore taskStore) {
@@ -71,6 +130,14 @@ public class RuntimeConfiguration {
     @Bean
     RuntimeContextBuilder runtimeContextBuilder() {
         return new RuntimeContextBuilder();
+    }
+
+    /** MCP Context 读取要求有效 Lease，防止已中断的旧 Session 继续获得执行权限。 */
+    @Bean
+    GetClaimedRuntimeContextService getClaimedRuntimeContextService(TaskStore taskStore,
+                                                                    RuntimeContextBuilder runtimeContextBuilder,
+                                                                    Clock runtimeClock) {
+        return new GetClaimedRuntimeContextService(taskStore, runtimeContextBuilder, runtimeClock);
     }
 
     /** 启动任务时仅推进确定性状态，不由 HTTP 或 Agent 直接改数据库。 */

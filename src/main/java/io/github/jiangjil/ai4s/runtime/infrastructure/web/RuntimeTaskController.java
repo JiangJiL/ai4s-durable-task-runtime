@@ -73,8 +73,8 @@ public class RuntimeTaskController {
     @ResponseStatus(HttpStatus.CREATED)
     public CheckpointResponse saveCheckpoint(@PathVariable UUID taskId, @PathVariable UUID stepId,
                                              @RequestBody SaveCheckpointRequest request) {
-        UUID checkpointId = saveCheckpointService.save(new SaveCheckpointCommand(taskId, stepId, request.kind(),
-                request.uri(), request.metadata(), request.traceId()));
+        UUID checkpointId = saveCheckpointService.save(new SaveCheckpointCommand(taskId, stepId, request.leaseToken(),
+                request.kind(), request.uri(), request.metadata(), request.traceId()));
         return new CheckpointResponse(checkpointId);
     }
 
@@ -101,8 +101,8 @@ public class RuntimeTaskController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public RequestAsyncJobResponse requestJob(@PathVariable UUID taskId, @PathVariable UUID stepId,
                                               @RequestBody RequestAsyncJobRequest request) {
-        UUID jobId = requestAsyncJobService.request(new RequestAsyncJobCommand(taskId, stepId, request.provider(),
-                request.request(), request.traceId()));
+        UUID jobId = requestAsyncJobService.request(new RequestAsyncJobCommand(taskId, stepId, request.leaseToken(),
+                request.provider(), request.request(), request.traceId()));
         return new RequestAsyncJobResponse(jobId);
     }
 
@@ -126,7 +126,7 @@ public class RuntimeTaskController {
     }
 
     /** MVP 的本地 Job 请求仅使用 provider=LOCAL_CODING 和 request.command。 */
-    public record RequestAsyncJobRequest(String provider, Map<String, Object> request, String traceId) {
+    public record RequestAsyncJobRequest(String provider, String leaseToken, Map<String, Object> request, String traceId) {
     }
 
     public record CreateTaskResponse(UUID taskId) {
@@ -136,7 +136,7 @@ public class RuntimeTaskController {
     }
 
     /** 检查点文件应先写入对象存储或持久卷；Runtime 仅接收其不可变引用。 */
-    public record SaveCheckpointRequest(String kind, String uri, Map<String, Object> metadata, String traceId) {
+    public record SaveCheckpointRequest(String kind, String leaseToken, String uri, Map<String, Object> metadata, String traceId) {
     }
 
     public record CheckpointResponse(UUID checkpointId) {

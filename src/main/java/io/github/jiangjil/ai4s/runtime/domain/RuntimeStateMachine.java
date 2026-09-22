@@ -26,10 +26,11 @@ public final class RuntimeStateMachine {
         TASK_TRANSITIONS.put(TaskStatus.CANCELLED, EnumSet.noneOf(TaskStatus.class));
 
         STEP_TRANSITIONS.put(StepStatus.PENDING, EnumSet.of(StepStatus.READY, StepStatus.SKIPPED, StepStatus.CANCELLED));
-        STEP_TRANSITIONS.put(StepStatus.READY, EnumSet.of(StepStatus.DISPATCHING, StepStatus.CANCELLED));
+        // Agent/Tool Step 由 Worker 领取后直接进入 RUNNING；Async Job 可先进入 DISPATCHING。
+        STEP_TRANSITIONS.put(StepStatus.READY, EnumSet.of(StepStatus.DISPATCHING, StepStatus.RUNNING, StepStatus.CANCELLED));
         STEP_TRANSITIONS.put(StepStatus.DISPATCHING, EnumSet.of(StepStatus.RUNNING, StepStatus.WAITING_EXTERNAL,
                 StepStatus.RETRY_WAIT, StepStatus.FAILED, StepStatus.CANCELLED));
-        STEP_TRANSITIONS.put(StepStatus.RUNNING, EnumSet.of(StepStatus.WAITING_EXTERNAL, StepStatus.SUCCEEDED,
+        STEP_TRANSITIONS.put(StepStatus.RUNNING, EnumSet.of(StepStatus.READY, StepStatus.DISPATCHING, StepStatus.WAITING_EXTERNAL, StepStatus.SUCCEEDED,
                 StepStatus.RETRY_WAIT, StepStatus.FAILED, StepStatus.CANCELLED));
         STEP_TRANSITIONS.put(StepStatus.WAITING_EXTERNAL, EnumSet.of(StepStatus.SUCCEEDED, StepStatus.RETRY_WAIT,
                 StepStatus.FAILED, StepStatus.CANCELLED));
