@@ -17,6 +17,7 @@ import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobCommand;
 import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobService;
 import io.github.jiangjil.ai4s.runtime.application.RenewLeaseCommand;
 import io.github.jiangjil.ai4s.runtime.application.RenewLeaseService;
+import io.github.jiangjil.ai4s.runtime.application.RegisterArtifactService;
 import io.github.jiangjil.ai4s.runtime.application.PauseTaskCommand;
 import io.github.jiangjil.ai4s.runtime.application.PauseTaskService;
 import io.github.jiangjil.ai4s.runtime.application.ResumeTaskService;
@@ -26,6 +27,7 @@ import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointService;
 import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
 import io.github.jiangjil.ai4s.runtime.domain.FailureType;
 import io.github.jiangjil.ai4s.runtime.domain.ChronicleEntryType;
+import io.github.jiangjil.ai4s.runtime.domain.ArtifactType;
 import io.github.jiangjil.ai4s.runtime.domain.ResumeMode;
 import io.github.jiangjil.ai4s.runtime.domain.StepType;
 import io.github.jiangjil.ai4s.runtime.domain.Task;
@@ -57,6 +59,7 @@ public class DurableRuntimeMcpTools {
     private final PauseTaskService pauseTaskService;
     private final ResumeTaskService resumeTaskService;
     private final AppendStepChronicleService appendStepChronicleService;
+    private final RegisterArtifactService registerArtifactService;
 
     public DurableRuntimeMcpTools(CreateTaskService createTaskService, StartTaskService startTaskService,
                                   ClaimStepService claimStepService, GetClaimedRuntimeContextService contextService,
@@ -64,7 +67,8 @@ public class DurableRuntimeMcpTools {
                                   CompleteStepService completeStepService, FailStepService failStepService,
                                   RequestAsyncJobService requestAsyncJobService, SaveCheckpointService saveCheckpointService,
                                   RenewLeaseService renewLeaseService, PauseTaskService pauseTaskService,
-                                  ResumeTaskService resumeTaskService, AppendStepChronicleService appendStepChronicleService) {
+                                  ResumeTaskService resumeTaskService, AppendStepChronicleService appendStepChronicleService,
+                                  RegisterArtifactService registerArtifactService) {
         this.createTaskService = createTaskService;
         this.startTaskService = startTaskService;
         this.claimStepService = claimStepService;
@@ -78,6 +82,7 @@ public class DurableRuntimeMcpTools {
         this.pauseTaskService = pauseTaskService;
         this.resumeTaskService = resumeTaskService;
         this.appendStepChronicleService = appendStepChronicleService;
+        this.registerArtifactService = registerArtifactService;
     }
 
     /**
@@ -260,6 +265,27 @@ public class DurableRuntimeMcpTools {
         return new ChronicleRecorded(entryId.toString());
     }
 
+    /**
+     * 将实际交付物登记为一等对象。Agent 应在设计、代码、报告、日志等产物实际生成后立即调用，
+     * 不能只把文件路径藏进 completion receipt，避免运行中心无法说明“到底交付了什么”。
+     */
+    @Tool(name = "runtime_register_artifact", description = "Register an actual task artifact with a durable URI, summary, type, and metadata for traceability UI.")
+    public ArtifactRecorded runtimeRegisterArtifact(
+            @ToolParam(description = "Runtime task ID", required = true) String taskId,
+            @ToolParam(description = "Step that produced or owns this artifact", required = true) String stepId,
+            @ToolParam(description = "One of CODE_DIFF, TEST_REPORT, BUILD_OUTPUT, LOG, DOCUMENT, CHECKPOINT, DATASET, MODEL, OTHER", required = true) String artifactType,
+            @ToolParam(description = "Human-readable artifact name", required = true) String displayName,
+            @ToolParam(description = "Review-oriented artifact summary", required = true) String summary,
+            @ToolParam(description = "Durable file, Git, object-store, or report URI", required = true) String uri,
+            @ToolParam(description = "Optional SHA-256 checksum; pass empty string when unavailable", required = false) String sha256,
+            @ToolParam(description = "Artifact byte size; use 0 when unknown", required = true) long sizeBytes,
+            @ToolParam(description = "Additional structured metadata such as changedFiles or commit", required = true) Map<String, Object> metadata,
+            @ToolParam(description = "Trace identifier for audit events", required = true) String traceId) {
+        UUID artifactId = registerArtifactService.register(uuid(taskId), uuid(stepId), ArtifactType.valueOf(artifactType),
+                displayName, summary, uri, sha256, sizeBytes, metadata, traceId);
+        return new ArtifactRecorded(artifactId.toString());
+    }
+
     private static UUID uuid(String value) {
         return UUID.fromString(value);
     }
@@ -289,4 +315,5 @@ public class DurableRuntimeMcpTools {
     public record LeaseRenewed(String leaseExpiresAt) { }
     public record TaskPaused(String taskId) { }
     public record ChronicleRecorded(String entryId) { }
+    public record ArtifactRecorded(String artifactId) { }
 }
