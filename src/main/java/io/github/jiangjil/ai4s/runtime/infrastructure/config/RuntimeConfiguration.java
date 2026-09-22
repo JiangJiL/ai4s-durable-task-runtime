@@ -3,6 +3,7 @@ package io.github.jiangjil.ai4s.runtime.infrastructure.config;
 import io.github.jiangjil.ai4s.runtime.application.ExponentialRetryPolicy;
 import io.github.jiangjil.ai4s.runtime.application.GetTaskRuntimeStateService;
 import io.github.jiangjil.ai4s.runtime.application.ListActiveTasksService;
+import io.github.jiangjil.ai4s.runtime.application.ListTasksService;
 import io.github.jiangjil.ai4s.runtime.application.GetClaimedRuntimeContextService;
 import io.github.jiangjil.ai4s.runtime.application.RuntimeContextBuilder;
 import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointService;
@@ -154,6 +155,9 @@ public class RuntimeConfiguration {
     ListActiveTasksService listActiveTasksService(TaskStore taskStore) {
         return new ListActiveTasksService(taskStore);
     }
+
+    @Bean
+    ListTasksService listTasksService(TaskStore taskStore) { return new ListTasksService(taskStore); }
 
     /** Runtime Context 不依赖 Spring 或检索组件，可直接由 OpenClaw/MCP 适配器复用。 */
     @Bean

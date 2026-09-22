@@ -2,6 +2,7 @@ package io.github.jiangjil.ai4s.runtime.application.port;
 
 import io.github.jiangjil.ai4s.runtime.domain.Task;
 import io.github.jiangjil.ai4s.runtime.domain.TaskStep;
+import io.github.jiangjil.ai4s.runtime.domain.TaskStatus;
 
 import java.util.List;
 import java.time.Instant;
@@ -20,6 +21,11 @@ public interface TaskStore {
      */
     default List<Task> findActiveTasks(int limit) {
         return List.of();
+    }
+
+    /** 运行中心查询入口；status 为 null 时返回全部历史任务，而不只限于未终态任务。 */
+    default List<Task> findTasks(TaskStatus status, int limit) {
+        return status == null ? findActiveTasks(limit) : List.of();
     }
 
     List<TaskStep> findSteps(UUID taskId);

@@ -39,6 +39,13 @@ public class TaskJdbcStore implements TaskStore {
             ORDER BY updated_at DESC
             LIMIT ?
             """;
+    private static final String FIND_TASKS = """
+            SELECT id, goal, status, current_step_id, version, created_at, updated_at
+            FROM task
+            %s
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """;
     private static final String FIND_STEPS = """
             SELECT id, task_id, ordinal, step_type, step_name, status, input_json, output_json, error_json, checkpoint_uri,
                    attempt, max_attempts, resume_mode, next_retry_at, worker_id, lease_token, lease_expires_at, claimed_at,
@@ -101,6 +108,16 @@ public class TaskJdbcStore implements TaskStore {
     @Override
     public List<Task> findActiveTasks(int limit) {
         return jdbcTemplate.query(FIND_ACTIVE_TASKS, (resultSet, rowNumber) -> mapTask(resultSet), limit);
+    }
+
+    @Override
+    public List<Task> findTasks(io.github.jiangjil.ai4s.runtime.domain.TaskStatus status, int limit) {
+        String condition = status == null ? "" : "WHERE status = ?";
+        String sql = FIND_TASKS.formatted(condition);
+        if (status == null) {
+            return jdbcTemplate.query(sql, (resultSet, rowNumber) -> mapTask(resultSet), limit);
+        }
+        return jdbcTemplate.query(sql, (resultSet, rowNumber) -> mapTask(resultSet), status.name(), limit);
     }
 
     @Override

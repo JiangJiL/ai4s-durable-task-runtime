@@ -14,6 +14,7 @@ import io.github.jiangjil.ai4s.runtime.application.RegisterArtifactService;
 import io.github.jiangjil.ai4s.runtime.application.RegisterStepStrategyService;
 import io.github.jiangjil.ai4s.runtime.application.TaskTraceService;
 import io.github.jiangjil.ai4s.runtime.application.ListActiveTasksService;
+import io.github.jiangjil.ai4s.runtime.application.ListTasksService;
 import io.github.jiangjil.ai4s.runtime.domain.ArtifactType;
 import io.github.jiangjil.ai4s.runtime.domain.ResumeMode;
 import io.github.jiangjil.ai4s.runtime.domain.StepType;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -47,6 +49,7 @@ public class RuntimeTaskController {
     private final RegisterArtifactService registerArtifactService;
     private final TaskTraceService taskTraceService;
     private final ListActiveTasksService listActiveTasksService;
+    private final ListTasksService listTasksService;
 
     public RuntimeTaskController(CreateTaskService createTaskService, GetTaskRuntimeStateService getTaskRuntimeStateService,
                                  RuntimeContextBuilder runtimeContextBuilder,
@@ -56,7 +59,7 @@ public class RuntimeTaskController {
                                  RegisterStepStrategyService registerStepStrategyService,
                                  RegisterArtifactService registerArtifactService,
                                  TaskTraceService taskTraceService,
-                                 ListActiveTasksService listActiveTasksService) {
+                                 ListActiveTasksService listActiveTasksService, ListTasksService listTasksService) {
         this.createTaskService = createTaskService;
         this.getTaskRuntimeStateService = getTaskRuntimeStateService;
         this.runtimeContextBuilder = runtimeContextBuilder;
@@ -67,6 +70,7 @@ public class RuntimeTaskController {
         this.registerArtifactService = registerArtifactService;
         this.taskTraceService = taskTraceService;
         this.listActiveTasksService = listActiveTasksService;
+        this.listTasksService = listTasksService;
     }
 
     /**
@@ -125,8 +129,9 @@ public class RuntimeTaskController {
 
     /** 运行中心列表：首版返回仍有生命周期的任务，避免把数据库实体暴露给浏览器。 */
     @GetMapping("/trace")
-    public List<TaskSummaryResponse> activeTraceTasks() {
-        return listActiveTasksService.list(100).stream().map(task -> new TaskSummaryResponse(task.id(), task.goal(),
+    public List<TaskSummaryResponse> traceTasks(@RequestParam(required = false) io.github.jiangjil.ai4s.runtime.domain.TaskStatus status,
+                                                @RequestParam(defaultValue = "100") int limit) {
+        return listTasksService.list(status, limit).stream().map(task -> new TaskSummaryResponse(task.id(), task.goal(),
                 task.status(), task.currentStepId(), task.updatedAt())).toList();
     }
 
