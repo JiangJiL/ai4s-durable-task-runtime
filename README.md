@@ -1,5 +1,10 @@
 # AI4S Durable Task Runtime
 
+## 可追溯任务运行中心
+
+任务步骤支持策略版本与一等产出物登记；`ai-management-web` 的运行中心页面通过 Trace API 展示。
+详细联调方式见 [任务运行中心说明](docs/task-traceability-ui.md)。
+
 一个用于理解 Agent Harness 中 Durable Task Runtime 的实战项目。目标不是让模型“记住”长任务进度，而是由 Runtime 持久化事实、对账外部世界并安全恢复，再让 Agent 进行认知决策。
 
 ## MVP 目标

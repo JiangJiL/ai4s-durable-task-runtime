@@ -20,6 +20,9 @@ import io.github.jiangjil.ai4s.runtime.application.ResumeTaskService;
 import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobService;
 import io.github.jiangjil.ai4s.runtime.application.RetryPolicy;
 import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
+import io.github.jiangjil.ai4s.runtime.application.RegisterArtifactService;
+import io.github.jiangjil.ai4s.runtime.application.RegisterStepStrategyService;
+import io.github.jiangjil.ai4s.runtime.application.TaskTraceService;
 import io.github.jiangjil.ai4s.runtime.application.port.ExternalJobAdapter;
 import io.github.jiangjil.ai4s.runtime.application.port.CheckpointStore;
 import io.github.jiangjil.ai4s.runtime.application.port.ExternalJobStore;
@@ -27,6 +30,7 @@ import io.github.jiangjil.ai4s.runtime.application.port.OutboxStore;
 import io.github.jiangjil.ai4s.runtime.application.port.RuntimeTransaction;
 import io.github.jiangjil.ai4s.runtime.application.port.TaskEventStore;
 import io.github.jiangjil.ai4s.runtime.application.port.TaskStore;
+import io.github.jiangjil.ai4s.runtime.application.port.TraceStore;
 import io.github.jiangjil.ai4s.runtime.infrastructure.local.LocalCodingJobAdapter;
 import io.github.jiangjil.ai4s.runtime.infrastructure.mcp.DurableRuntimeMcpTools;
 import org.springframework.ai.tool.ToolCallbackProvider;
@@ -79,6 +83,24 @@ public class RuntimeConfiguration {
     CreateTaskService createTaskService(TaskStore taskStore, TaskEventStore eventStore,
                                         RuntimeTransaction transaction, Clock runtimeClock) {
         return new CreateTaskService(taskStore, eventStore, transaction, runtimeClock);
+    }
+
+    /** 展示策略与产物仍经 Runtime 服务层写入，避免 UI 绕过任务归属和审计。 */
+    @Bean
+    RegisterStepStrategyService registerStepStrategyService(TaskStore taskStore, TraceStore traceStore,
+                                                            TaskEventStore eventStore, RuntimeTransaction transaction, Clock runtimeClock) {
+        return new RegisterStepStrategyService(taskStore, traceStore, eventStore, transaction, runtimeClock);
+    }
+
+    @Bean
+    RegisterArtifactService registerArtifactService(TaskStore taskStore, TraceStore traceStore,
+                                                    TaskEventStore eventStore, RuntimeTransaction transaction, Clock runtimeClock) {
+        return new RegisterArtifactService(taskStore, traceStore, eventStore, transaction, runtimeClock);
+    }
+
+    @Bean
+    TaskTraceService taskTraceService(TaskStore taskStore, TraceStore traceStore) {
+        return new TaskTraceService(taskStore, traceStore);
     }
 
     /** Worker 领取步骤的 Lease 由 Runtime 事务管理，不能由 OpenClaw Session 自行维护。 */

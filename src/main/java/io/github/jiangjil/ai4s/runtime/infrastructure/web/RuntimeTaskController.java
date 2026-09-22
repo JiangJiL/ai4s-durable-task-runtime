@@ -10,6 +10,11 @@ import io.github.jiangjil.ai4s.runtime.application.RuntimeContextBuilder;
 import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointCommand;
 import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointService;
 import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
+import io.github.jiangjil.ai4s.runtime.application.RegisterArtifactService;
+import io.github.jiangjil.ai4s.runtime.application.RegisterStepStrategyService;
+import io.github.jiangjil.ai4s.runtime.application.TaskTraceService;
+import io.github.jiangjil.ai4s.runtime.application.ListActiveTasksService;
+import io.github.jiangjil.ai4s.runtime.domain.ArtifactType;
 import io.github.jiangjil.ai4s.runtime.domain.ResumeMode;
 import io.github.jiangjil.ai4s.runtime.domain.StepType;
 import org.springframework.http.HttpStatus;
@@ -38,18 +43,30 @@ public class RuntimeTaskController {
     private final SaveCheckpointService saveCheckpointService;
     private final StartTaskService startTaskService;
     private final RequestAsyncJobService requestAsyncJobService;
+    private final RegisterStepStrategyService registerStepStrategyService;
+    private final RegisterArtifactService registerArtifactService;
+    private final TaskTraceService taskTraceService;
+    private final ListActiveTasksService listActiveTasksService;
 
     public RuntimeTaskController(CreateTaskService createTaskService, GetTaskRuntimeStateService getTaskRuntimeStateService,
                                  RuntimeContextBuilder runtimeContextBuilder,
                                  SaveCheckpointService saveCheckpointService,
                                  StartTaskService startTaskService,
-                                 RequestAsyncJobService requestAsyncJobService) {
+                                 RequestAsyncJobService requestAsyncJobService,
+                                 RegisterStepStrategyService registerStepStrategyService,
+                                 RegisterArtifactService registerArtifactService,
+                                 TaskTraceService taskTraceService,
+                                 ListActiveTasksService listActiveTasksService) {
         this.createTaskService = createTaskService;
         this.getTaskRuntimeStateService = getTaskRuntimeStateService;
         this.runtimeContextBuilder = runtimeContextBuilder;
         this.saveCheckpointService = saveCheckpointService;
         this.startTaskService = startTaskService;
         this.requestAsyncJobService = requestAsyncJobService;
+        this.registerStepStrategyService = registerStepStrategyService;
+        this.registerArtifactService = registerArtifactService;
+        this.taskTraceService = taskTraceService;
+        this.listActiveTasksService = listActiveTasksService;
     }
 
     /**
@@ -106,6 +123,35 @@ public class RuntimeTaskController {
         return new RequestAsyncJobResponse(jobId);
     }
 
+    /** 运行中心列表：首版返回仍有生命周期的任务，避免把数据库实体暴露给浏览器。 */
+    @GetMapping("/trace")
+    public List<TaskSummaryResponse> activeTraceTasks() {
+        return listActiveTasksService.list(100).stream().map(task -> new TaskSummaryResponse(task.id(), task.goal(),
+                task.status(), task.currentStepId(), task.updatedAt())).toList();
+    }
+
+    /** 单次聚合返回任务、步骤策略和产物，供详情页直接渲染。 */
+    @GetMapping("/{taskId}/trace")
+    public TraceResponse getTrace(@PathVariable UUID taskId) {
+        return TraceResponse.from(taskTraceService.get(taskId));
+    }
+
+    /** 记录策略版本；相同 Step 的策略调整会追加版本而不是覆盖历史。 */
+    @PostMapping("/{taskId}/steps/{stepId}/strategies")
+    @ResponseStatus(HttpStatus.CREATED)
+    public IdResponse strategy(@PathVariable UUID taskId, @PathVariable UUID stepId, @RequestBody StrategyRequest request) {
+        return new IdResponse(registerStepStrategyService.register(taskId, stepId, request.summary(), request.rationale(),
+                request.plannedActions(), request.expectedArtifacts(), request.authorType(), request.authorId(), request.traceId()));
+    }
+
+    /** 登记已实际产生的 Artifact；文件内容仍由 uri 指向对象存储、Git 或持久卷。 */
+    @PostMapping("/{taskId}/steps/{stepId}/artifacts")
+    @ResponseStatus(HttpStatus.CREATED)
+    public IdResponse artifact(@PathVariable UUID taskId, @PathVariable UUID stepId, @RequestBody ArtifactRequest request) {
+        return new IdResponse(registerArtifactService.register(taskId, stepId, request.type(), request.displayName(), request.summary(),
+                request.uri(), request.sha256(), request.sizeBytes(), request.metadata(), request.traceId()));
+    }
+
     /** HTTP 请求模型只表达声明，不携带任何可直接篡改状态的字段。 */
     public record CreateTaskRequest(String goal, List<StepRequest> steps, String traceId) {
         List<CreateStepDefinition> toDefinitions() {
@@ -140,6 +186,36 @@ public class RuntimeTaskController {
     }
 
     public record CheckpointResponse(UUID checkpointId) {
+    }
+
+    public record StrategyRequest(String summary, String rationale, List<Map<String, Object>> plannedActions,
+                                  List<Map<String, Object>> expectedArtifacts, String authorType, String authorId, String traceId) {}
+    public record ArtifactRequest(ArtifactType type, String displayName, String summary, String uri, String sha256,
+                                  long sizeBytes, Map<String, Object> metadata, String traceId) {}
+    public record IdResponse(UUID id) {}
+    public record TaskSummaryResponse(UUID id, String goal, io.github.jiangjil.ai4s.runtime.domain.TaskStatus status,
+                                      UUID currentStepId, java.time.Instant updatedAt) {}
+
+    /**
+     * 面向浏览器的 Trace DTO：故意不返回 workerId、leaseToken、leaseExpiresAt 等执行控制凭据。
+     * UI 需要追溯事实，不应获得可以影响 Runtime 状态迁移的令牌。
+     */
+    public record TraceResponse(TraceTask task, List<TraceStep> steps, List<io.github.jiangjil.ai4s.runtime.domain.TaskArtifact> artifacts) {
+        static TraceResponse from(TaskTraceService.TaskTrace trace) {
+            return new TraceResponse(TraceTask.from(trace.task()), trace.steps().stream().map(TraceStep::from).toList(), trace.artifacts());
+        }
+    }
+    public record TraceTask(UUID id, String goal, io.github.jiangjil.ai4s.runtime.domain.TaskStatus status,
+                            UUID currentStepId, long version, java.time.Instant createdAt, java.time.Instant updatedAt) {
+        static TraceTask from(io.github.jiangjil.ai4s.runtime.domain.Task task) {
+            return new TraceTask(task.id(), task.goal(), task.status(), task.currentStepId(), task.version(), task.createdAt(), task.updatedAt());
+        }
+    }
+    public record TraceStep(StepView step, List<io.github.jiangjil.ai4s.runtime.domain.StepStrategy> strategies,
+                            List<io.github.jiangjil.ai4s.runtime.domain.TaskArtifact> artifacts) {
+        static TraceStep from(TaskTraceService.StepTrace stepTrace) {
+            return new TraceStep(StepView.from(stepTrace.step()), stepTrace.strategies(), stepTrace.artifacts());
+        }
     }
 
     /** 对外只暴露必要的运行态；数据库实体和状态迁移方法不会泄漏到 HTTP 层。 */
