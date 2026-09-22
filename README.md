@@ -25,6 +25,8 @@
 
 OpenClaw 与 Runtime 的职责边界、Agent Step 生命周期、异步 Job 的持久化与恢复流程见：[架构总览](docs/architecture/architecture-overview.md)。
 
+可在 diagrams.net / draw.io 中编辑的图形版见：[OpenClaw Durable Runtime 架构图](docs/architecture/openclaw-durable-runtime.drawio)。
+
 ## 项目状态
 
 - 当前阶段：P1 Durable Core 实现与集成验证
