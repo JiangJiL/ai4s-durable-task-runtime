@@ -5,6 +5,7 @@ import io.github.jiangjil.ai4s.runtime.application.ClaimStepService;
 import io.github.jiangjil.ai4s.runtime.application.CompleteStepCommand;
 import io.github.jiangjil.ai4s.runtime.application.CompleteStepService;
 import io.github.jiangjil.ai4s.runtime.application.AmendExpiredStepCommand;
+import io.github.jiangjil.ai4s.runtime.application.AppendStepChronicleService;
 import io.github.jiangjil.ai4s.runtime.application.CreateStepDefinition;
 import io.github.jiangjil.ai4s.runtime.application.CreateTaskCommand;
 import io.github.jiangjil.ai4s.runtime.application.CreateTaskService;
@@ -24,6 +25,7 @@ import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointCommand;
 import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointService;
 import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
 import io.github.jiangjil.ai4s.runtime.domain.FailureType;
+import io.github.jiangjil.ai4s.runtime.domain.ChronicleEntryType;
 import io.github.jiangjil.ai4s.runtime.domain.ResumeMode;
 import io.github.jiangjil.ai4s.runtime.domain.StepType;
 import io.github.jiangjil.ai4s.runtime.domain.Task;
@@ -54,6 +56,7 @@ public class DurableRuntimeMcpTools {
     private final RenewLeaseService renewLeaseService;
     private final PauseTaskService pauseTaskService;
     private final ResumeTaskService resumeTaskService;
+    private final AppendStepChronicleService appendStepChronicleService;
 
     public DurableRuntimeMcpTools(CreateTaskService createTaskService, StartTaskService startTaskService,
                                   ClaimStepService claimStepService, GetClaimedRuntimeContextService contextService,
@@ -61,7 +64,7 @@ public class DurableRuntimeMcpTools {
                                   CompleteStepService completeStepService, FailStepService failStepService,
                                   RequestAsyncJobService requestAsyncJobService, SaveCheckpointService saveCheckpointService,
                                   RenewLeaseService renewLeaseService, PauseTaskService pauseTaskService,
-                                  ResumeTaskService resumeTaskService) {
+                                  ResumeTaskService resumeTaskService, AppendStepChronicleService appendStepChronicleService) {
         this.createTaskService = createTaskService;
         this.startTaskService = startTaskService;
         this.claimStepService = claimStepService;
@@ -74,6 +77,7 @@ public class DurableRuntimeMcpTools {
         this.renewLeaseService = renewLeaseService;
         this.pauseTaskService = pauseTaskService;
         this.resumeTaskService = resumeTaskService;
+        this.appendStepChronicleService = appendStepChronicleService;
     }
 
     /**
@@ -237,6 +241,25 @@ public class DurableRuntimeMcpTools {
         return new TaskStarted(taskId);
     }
 
+    /** 记录审阅级关键节点而非工具流水；写入不改变 Step 状态。 */
+    @Tool(name = "runtime_append_step_chronicle", description = "Append an immutable decision, execution, verification, or handoff record to a task step without changing its status.")
+    public ChronicleRecorded runtimeAppendStepChronicle(
+            @ToolParam(description = "Runtime task ID", required = true) String taskId,
+            @ToolParam(description = "Runtime step ID", required = true) String stepId,
+            @ToolParam(description = "One of DECISION, EXECUTION, VERIFICATION, HANDOFF", required = true) String entryType,
+            @ToolParam(description = "Short human-readable title", required = true) String title,
+            @ToolParam(description = "Review-oriented summary", required = true) String summary,
+            @ToolParam(description = "Structured details appropriate for the entry type", required = true) Map<String, Object> details,
+            @ToolParam(description = "Actor kind, for example AGENT, HUMAN, RUNTIME, JOB", required = true) String actorType,
+            @ToolParam(description = "Actor identifier", required = true) String actorId,
+            @ToolParam(description = "When the fact actually occurred, ISO-8601; omit by passing null to use now", required = false) String occurredAt,
+            @ToolParam(description = "Trace identifier for audit events", required = true) String traceId) {
+        UUID entryId = appendStepChronicleService.append(uuid(taskId), uuid(stepId), ChronicleEntryType.valueOf(entryType),
+                title, summary, details, actorType, actorId, traceId,
+                occurredAt == null || occurredAt.isBlank() ? null : Instant.parse(occurredAt));
+        return new ChronicleRecorded(entryId.toString());
+    }
+
     private static UUID uuid(String value) {
         return UUID.fromString(value);
     }
@@ -265,4 +288,5 @@ public class DurableRuntimeMcpTools {
     public record CheckpointSaved(String checkpointId) { }
     public record LeaseRenewed(String leaseExpiresAt) { }
     public record TaskPaused(String taskId) { }
+    public record ChronicleRecorded(String entryId) { }
 }

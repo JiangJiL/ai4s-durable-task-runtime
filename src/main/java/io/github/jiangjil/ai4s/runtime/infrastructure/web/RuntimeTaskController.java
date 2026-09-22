@@ -11,11 +11,13 @@ import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointCommand;
 import io.github.jiangjil.ai4s.runtime.application.SaveCheckpointService;
 import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
 import io.github.jiangjil.ai4s.runtime.application.RegisterArtifactService;
+import io.github.jiangjil.ai4s.runtime.application.AppendStepChronicleService;
 import io.github.jiangjil.ai4s.runtime.application.RegisterStepStrategyService;
 import io.github.jiangjil.ai4s.runtime.application.TaskTraceService;
 import io.github.jiangjil.ai4s.runtime.application.ListActiveTasksService;
 import io.github.jiangjil.ai4s.runtime.application.ListTasksService;
 import io.github.jiangjil.ai4s.runtime.domain.ArtifactType;
+import io.github.jiangjil.ai4s.runtime.domain.ChronicleEntryType;
 import io.github.jiangjil.ai4s.runtime.domain.ResumeMode;
 import io.github.jiangjil.ai4s.runtime.domain.StepType;
 import org.springframework.http.HttpStatus;
@@ -47,6 +49,7 @@ public class RuntimeTaskController {
     private final RequestAsyncJobService requestAsyncJobService;
     private final RegisterStepStrategyService registerStepStrategyService;
     private final RegisterArtifactService registerArtifactService;
+    private final AppendStepChronicleService appendStepChronicleService;
     private final TaskTraceService taskTraceService;
     private final ListActiveTasksService listActiveTasksService;
     private final ListTasksService listTasksService;
@@ -58,6 +61,7 @@ public class RuntimeTaskController {
                                  RequestAsyncJobService requestAsyncJobService,
                                  RegisterStepStrategyService registerStepStrategyService,
                                  RegisterArtifactService registerArtifactService,
+                                 AppendStepChronicleService appendStepChronicleService,
                                  TaskTraceService taskTraceService,
                                  ListActiveTasksService listActiveTasksService, ListTasksService listTasksService) {
         this.createTaskService = createTaskService;
@@ -68,6 +72,7 @@ public class RuntimeTaskController {
         this.requestAsyncJobService = requestAsyncJobService;
         this.registerStepStrategyService = registerStepStrategyService;
         this.registerArtifactService = registerArtifactService;
+        this.appendStepChronicleService = appendStepChronicleService;
         this.taskTraceService = taskTraceService;
         this.listActiveTasksService = listActiveTasksService;
         this.listTasksService = listTasksService;
@@ -157,6 +162,14 @@ public class RuntimeTaskController {
                 request.uri(), request.sha256(), request.sizeBytes(), request.metadata(), request.traceId()));
     }
 
+    /** 追加关键决策、执行、验证或交付事实；不记录低价值工具流水。 */
+    @PostMapping("/{taskId}/steps/{stepId}/chronicle")
+    @ResponseStatus(HttpStatus.CREATED)
+    public IdResponse chronicle(@PathVariable UUID taskId, @PathVariable UUID stepId, @RequestBody ChronicleRequest request) {
+        return new IdResponse(appendStepChronicleService.append(taskId, stepId, request.type(), request.title(), request.summary(),
+                request.details(), request.actorType(), request.actorId(), request.traceId(), request.occurredAt()));
+    }
+
     /** HTTP 请求模型只表达声明，不携带任何可直接篡改状态的字段。 */
     public record CreateTaskRequest(String goal, List<StepRequest> steps, String traceId) {
         List<CreateStepDefinition> toDefinitions() {
@@ -197,6 +210,8 @@ public class RuntimeTaskController {
                                   List<Map<String, Object>> expectedArtifacts, String authorType, String authorId, String traceId) {}
     public record ArtifactRequest(ArtifactType type, String displayName, String summary, String uri, String sha256,
                                   long sizeBytes, Map<String, Object> metadata, String traceId) {}
+    public record ChronicleRequest(ChronicleEntryType type, String title, String summary, Map<String, Object> details,
+                                   String actorType, String actorId, String traceId, java.time.Instant occurredAt) {}
     public record IdResponse(UUID id) {}
     public record TaskSummaryResponse(UUID id, String goal, io.github.jiangjil.ai4s.runtime.domain.TaskStatus status,
                                       UUID currentStepId, java.time.Instant updatedAt) {}
@@ -217,9 +232,10 @@ public class RuntimeTaskController {
         }
     }
     public record TraceStep(StepView step, List<io.github.jiangjil.ai4s.runtime.domain.StepStrategy> strategies,
+                            List<io.github.jiangjil.ai4s.runtime.domain.StepChronicleEntry> chronicle,
                             List<io.github.jiangjil.ai4s.runtime.domain.TaskArtifact> artifacts) {
         static TraceStep from(TaskTraceService.StepTrace stepTrace) {
-            return new TraceStep(StepView.from(stepTrace.step()), stepTrace.strategies(), stepTrace.artifacts());
+            return new TraceStep(StepView.from(stepTrace.step()), stepTrace.strategies(), stepTrace.chronicle(), stepTrace.artifacts());
         }
     }
 

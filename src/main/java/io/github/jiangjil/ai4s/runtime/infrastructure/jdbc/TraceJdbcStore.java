@@ -5,6 +5,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.jiangjil.ai4s.runtime.application.port.TraceStore;
 import io.github.jiangjil.ai4s.runtime.domain.ArtifactType;
+import io.github.jiangjil.ai4s.runtime.domain.ChronicleEntryType;
+import io.github.jiangjil.ai4s.runtime.domain.StepChronicleEntry;
 import io.github.jiangjil.ai4s.runtime.domain.StepStrategy;
 import io.github.jiangjil.ai4s.runtime.domain.TaskArtifact;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -40,6 +42,15 @@ public class TraceJdbcStore implements TraceStore {
                 Timestamp.from(a.producedAt()), Timestamp.from(a.createdAt()));
     }
 
+    @Override public void appendChronicle(StepChronicleEntry e) {
+        jdbc.update("""
+                INSERT INTO step_chronicle (id, task_step_id, entry_type, title, summary, details_json,
+                actor_type, actor_id, trace_id, occurred_at, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, e.id().toString(), e.stepId().toString(), e.type().name(), e.title(), e.summary(), write(e.details()),
+                e.actorType(), e.actorId(), e.traceId(), Timestamp.from(e.occurredAt()), Timestamp.from(e.createdAt()));
+    }
+
     @Override public List<StepStrategy> findStrategies(UUID stepId) {
         return jdbc.query("""
                 SELECT id, task_step_id, version, strategy_summary, decision_rationale, planned_actions_json,
@@ -60,6 +71,18 @@ public class TraceJdbcStore implements TraceStore {
                 ArtifactType.valueOf(rs.getString("artifact_type")), rs.getString("display_name"), rs.getString("summary"),
                 rs.getString("uri"), rs.getString("sha256"), rs.getLong("size_bytes"), map(rs.getString("metadata_json")),
                 rs.getTimestamp("produced_at").toInstant(), rs.getTimestamp("created_at").toInstant()), taskId.toString());
+    }
+
+    @Override public List<StepChronicleEntry> findChronicle(UUID stepId) {
+        return jdbc.query("""
+                SELECT id, task_step_id, entry_type, title, summary, details_json, actor_type, actor_id,
+                       trace_id, occurred_at, created_at
+                FROM step_chronicle WHERE task_step_id = ? ORDER BY occurred_at, created_at
+                """, (rs, n) -> new StepChronicleEntry(UUID.fromString(rs.getString("id")),
+                UUID.fromString(rs.getString("task_step_id")), ChronicleEntryType.valueOf(rs.getString("entry_type")),
+                rs.getString("title"), rs.getString("summary"), map(rs.getString("details_json")),
+                rs.getString("actor_type"), rs.getString("actor_id"), rs.getString("trace_id"),
+                rs.getTimestamp("occurred_at").toInstant(), rs.getTimestamp("created_at").toInstant()), stepId.toString());
     }
 
     private String write(Object value) { try { return json.writeValueAsString(value); } catch (JsonProcessingException e) { throw new IllegalArgumentException("Trace JSON 无法序列化", e); } }

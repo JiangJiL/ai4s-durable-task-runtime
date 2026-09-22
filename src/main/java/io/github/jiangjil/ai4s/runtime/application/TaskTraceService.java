@@ -18,9 +18,10 @@ public final class TaskTraceService {
         Task task = tasks.findTask(taskId).orElseThrow(() -> new TaskNotFoundException(taskId));
         List<TaskArtifact> artifacts = trace.findArtifacts(taskId);
         List<StepTrace> steps = tasks.findSteps(taskId).stream().map(step -> new StepTrace(step, trace.findStrategies(step.id()),
-                artifacts.stream().filter(a -> step.id().equals(a.stepId())).toList())).toList();
+                trace.findChronicle(step.id()), artifacts.stream().filter(a -> step.id().equals(a.stepId())).toList())).toList();
         return new TaskTrace(task, steps, artifacts);
     }
     public record TaskTrace(Task task, List<StepTrace> steps, List<TaskArtifact> artifacts) {}
-    public record StepTrace(TaskStep step, List<StepStrategy> strategies, List<TaskArtifact> artifacts) {}
+    public record StepTrace(TaskStep step, List<StepStrategy> strategies, List<io.github.jiangjil.ai4s.runtime.domain.StepChronicleEntry> chronicle,
+                            List<TaskArtifact> artifacts) {}
 }

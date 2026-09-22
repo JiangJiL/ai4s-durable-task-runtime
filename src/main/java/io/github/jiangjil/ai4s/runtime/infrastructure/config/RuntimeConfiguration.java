@@ -22,6 +22,7 @@ import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobService;
 import io.github.jiangjil.ai4s.runtime.application.RetryPolicy;
 import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
 import io.github.jiangjil.ai4s.runtime.application.RegisterArtifactService;
+import io.github.jiangjil.ai4s.runtime.application.AppendStepChronicleService;
 import io.github.jiangjil.ai4s.runtime.application.RegisterStepStrategyService;
 import io.github.jiangjil.ai4s.runtime.application.TaskTraceService;
 import io.github.jiangjil.ai4s.runtime.application.port.ExternalJobAdapter;
@@ -97,6 +98,13 @@ public class RuntimeConfiguration {
     RegisterArtifactService registerArtifactService(TaskStore taskStore, TraceStore traceStore,
                                                     TaskEventStore eventStore, RuntimeTransaction transaction, Clock runtimeClock) {
         return new RegisterArtifactService(taskStore, traceStore, eventStore, transaction, runtimeClock);
+    }
+
+    /** 纪事与状态迁移分离；追加过程说明不能绕过 Step 生命周期校验。 */
+    @Bean
+    AppendStepChronicleService appendStepChronicleService(TaskStore taskStore, TraceStore traceStore,
+                                                           TaskEventStore eventStore, RuntimeTransaction transaction, Clock runtimeClock) {
+        return new AppendStepChronicleService(taskStore, traceStore, eventStore, transaction, runtimeClock);
     }
 
     @Bean
