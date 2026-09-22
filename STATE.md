@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-`P1_DURABLE_CORE`
+`P3_OPENCLAW_MCP_INTEGRATION`
 
 ## 已完成
 
@@ -35,16 +35,20 @@
 - 完成 Runtime 重启恢复验收：本地 Job 在 Runtime 不在线期间完成；重启后的 Runtime 依据 MySQL Task/Step/External Job 状态与本地 Job Registry 对账，单次推进为 `SUCCEEDED`，并确认未创建重复 Job。
 - 为 Java 核心逻辑和 Flyway V1 schema 补充中文注释，明确事务边界、Crash Window、幂等与事实来源设计。
 - 制定五类故障注入实验：Runtime 重启、提交 Crash Window、重复回调、回调丢失、可恢复/不可恢复失败；每类均定义数据库与本地 Job Registry 的验收证据。
+- 实现标准 MCP SSE Server：普通 OpenClaw Agent 可通过 `runtime_create_task`、`runtime_claim_step`、`runtime_get_context`、`runtime_complete_step` 等受限 Tool 与 Runtime 交互，不直接读写 MySQL。
+- 实现 Agent Step Lease：同一步只允许持有有效 `leaseToken` 的 Session 回写；中断后 Lease 到期即可由新 Session 接手。
+- 实现 `runtime_list_active_tasks`：新普通 Agent Session 先从 Runtime DB 列出非终态任务，再 claim 当前 Step，因此不必依赖 Conversation、Memory、Markdown 或 RAG 找回 `taskId`。
+- 补充普通 Agent 使用与中断恢复手册：`runtime_list_active_tasks → runtime_claim_step → runtime_get_context → 继续当前 Step`。
 
 ## 未开始
 
-- MySQL 实例准备（可使用 Docker，后续实施时处理）。
-- MySQL 集成验证与故障注入实验。
+- 普通 OpenClaw Agent 的真实 MCP Tool 注入与手动端到端任务验证。
+- 选择两项复杂度接近的 Coding Feature，形成原生 OpenClaw 与 Runtime 的 AB 对比报告。
 
 ## 下一步
 
-1. 通过安全注入连接 MySQL，启动 Spring Boot，验证 Flyway schema、事务语义和三个定时循环。
-2. 补充结构化上下文与 Checkpoint 的 MySQL 集成测试。
+1. 将普通 OpenClaw Agent 的 MCP Tool 指向 Runtime SSE Server，创建真实 Coding Task。
+2. 在 Agent Step 中断后，使用新 Session 执行 `list → claim → context`，验证确定性恢复。
 3. 执行重复回调、提交 Crash Window 故障注入测试，并记录原生 OpenClaw 与 Runtime 的 AB 对比指标。
 
 > 本文件服务于人和 Agent 的项目协作；它不是 Durable Runtime 的事实来源。运行期真相必须落在 Runtime 数据库和事件日志中。

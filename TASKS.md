@@ -1,6 +1,6 @@
 # 阶段任务
 
-## P0：设计评审（当前）
+## P0：设计评审
 
 - [x] 明确 MVP 范围和非目标
 - [x] 设计 Runtime 架构与状态模型
@@ -10,7 +10,7 @@
 
 ## P1：最小 Durable Core
 
-- [ ] 准备 MySQL（优先 Docker；连接信息只通过环境变量提供）
+- [x] 准备 MySQL / Flyway 集成验证环境
 - [x] 初始化 Maven / Spring Boot 工程
 - [x] 建立 Flyway schema
 - [x] 实现 Task / Step 状态机
@@ -29,10 +29,14 @@
 - [x] 实现周期性 Reconciler（应用层核心；Spring 定时装配待接入）
 - [x] 实现 Retry Policy 与失败分类
 
-## P3：OpenClaw 集成与实验
+## P3：OpenClaw 集成与实验（当前）
 
-- [ ] 实现 Runtime Context Builder
-- [ ] 定义 OpenClaw Agent Intent 协议
+- [x] 实现 Runtime Context Builder
+- [x] 定义 OpenClaw Agent Intent 协议
+- [x] 实现 Runtime MCP Server、Lease 与活跃任务发现
+- [x] 编写普通 OpenClaw Agent 的恢复协议
+- [ ] 用普通 OpenClaw Agent 创建并执行真实 Coding Task
+- [ ] 中断 Agent 并以新 Session 执行 `list → claim → context` 恢复验证
 - [ ] 建立两个复杂度相近的 Coding Feature 实验
 - [ ] 执行六类故障注入测试
 - [ ] 形成原生 OpenClaw 与 Runtime 的对比报告
