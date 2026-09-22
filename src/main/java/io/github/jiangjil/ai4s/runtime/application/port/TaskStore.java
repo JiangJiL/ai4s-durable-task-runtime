@@ -14,6 +14,14 @@ public interface TaskStore {
 
     Optional<Task> findTask(UUID taskId);
 
+    /**
+     * 返回仍有生命周期的任务，供恢复后的普通 Agent 发现需要继续的工作。
+     * 这是确定性数据库查询，不允许由会话记忆或语义检索代替。
+     */
+    default List<Task> findActiveTasks(int limit) {
+        return List.of();
+    }
+
     List<TaskStep> findSteps(UUID taskId);
 
     Optional<TaskStep> findStep(UUID stepId);

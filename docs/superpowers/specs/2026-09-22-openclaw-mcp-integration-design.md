@@ -1,8 +1,8 @@
-# OpenClaw 专用 Worker MCP 接入设计
+# OpenClaw 普通 Agent MCP 接入设计
 
 **日期：** 2026-09-22  
-**状态：** 待 Review  
-**范围：** 将 `ai4s-durable-task-runtime` 作为 MCP Server 接入一个专用 OpenClaw 验证 Agent，并用真实 Coding Task 验证确定性恢复。
+**状态：** 已被普通 Agent 接入方案取代
+**范围：** 历史设计记录。当前实现不要求专用 OpenClaw 验证 Agent；请使用 [普通 Agent 快速开始](../../openclaw-runtime-quickstart.md)。
 
 ## 1. 目标与边界
 

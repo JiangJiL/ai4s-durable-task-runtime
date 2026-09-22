@@ -10,6 +10,7 @@ import io.github.jiangjil.ai4s.runtime.application.CreateTaskService;
 import io.github.jiangjil.ai4s.runtime.application.FailStepCommand;
 import io.github.jiangjil.ai4s.runtime.application.FailStepService;
 import io.github.jiangjil.ai4s.runtime.application.GetClaimedRuntimeContextService;
+import io.github.jiangjil.ai4s.runtime.application.ListActiveTasksService;
 import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobCommand;
 import io.github.jiangjil.ai4s.runtime.application.RequestAsyncJobService;
 import io.github.jiangjil.ai4s.runtime.application.RenewLeaseCommand;
@@ -24,6 +25,7 @@ import io.github.jiangjil.ai4s.runtime.application.StartTaskService;
 import io.github.jiangjil.ai4s.runtime.domain.FailureType;
 import io.github.jiangjil.ai4s.runtime.domain.ResumeMode;
 import io.github.jiangjil.ai4s.runtime.domain.StepType;
+import io.github.jiangjil.ai4s.runtime.domain.Task;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
@@ -43,6 +45,7 @@ public class DurableRuntimeMcpTools {
     private final StartTaskService startTaskService;
     private final ClaimStepService claimStepService;
     private final GetClaimedRuntimeContextService contextService;
+    private final ListActiveTasksService listActiveTasksService;
     private final CompleteStepService completeStepService;
     private final FailStepService failStepService;
     private final RequestAsyncJobService requestAsyncJobService;
@@ -53,6 +56,7 @@ public class DurableRuntimeMcpTools {
 
     public DurableRuntimeMcpTools(CreateTaskService createTaskService, StartTaskService startTaskService,
                                   ClaimStepService claimStepService, GetClaimedRuntimeContextService contextService,
+                                  ListActiveTasksService listActiveTasksService,
                                   CompleteStepService completeStepService, FailStepService failStepService,
                                   RequestAsyncJobService requestAsyncJobService, SaveCheckpointService saveCheckpointService,
                                   RenewLeaseService renewLeaseService, PauseTaskService pauseTaskService,
@@ -61,6 +65,7 @@ public class DurableRuntimeMcpTools {
         this.startTaskService = startTaskService;
         this.claimStepService = claimStepService;
         this.contextService = contextService;
+        this.listActiveTasksService = listActiveTasksService;
         this.completeStepService = completeStepService;
         this.failStepService = failStepService;
         this.requestAsyncJobService = requestAsyncJobService;
@@ -68,6 +73,15 @@ public class DurableRuntimeMcpTools {
         this.renewLeaseService = renewLeaseService;
         this.pauseTaskService = pauseTaskService;
         this.resumeTaskService = resumeTaskService;
+    }
+
+    /**
+     * 普通 Agent 的恢复入口。先从 Runtime 找未终态任务，绝不靠对话或 RAG 猜测 taskId。
+     */
+    @Tool(name = "runtime_list_active_tasks", description = "List non-terminal durable tasks so a restarted agent can deterministically resume work without remembering a task ID.")
+    public List<ActiveTask> runtimeListActiveTasks(
+            @ToolParam(description = "Maximum number of tasks to return, 1 to 100", required = true) int limit) {
+        return listActiveTasksService.list(limit).stream().map(ActiveTask::from).toList();
     }
 
     /** 创建任务只持久化线性计划；调用 runtime_start_task 前不会执行任何步骤。 */
@@ -91,10 +105,10 @@ public class DurableRuntimeMcpTools {
     }
 
     /** 原子领取 READY 或租约已过期的当前 Agent/Tool/Async Job Step。 */
-    @Tool(name = "runtime_claim_step", description = "Atomically claim the current READY or expired-lease step for a dedicated worker.")
+    @Tool(name = "runtime_claim_step", description = "Atomically claim the current READY or expired-lease step for the calling OpenClaw agent session.")
     public ClaimedStep runtimeClaimStep(
             @ToolParam(description = "Runtime task ID", required = true) String taskId,
-            @ToolParam(description = "Stable dedicated worker ID", required = true) String workerId,
+            @ToolParam(description = "Stable identifier of the calling OpenClaw agent or session", required = true) String workerId,
             @ToolParam(description = "Lease duration in seconds, 30 to 3600", required = true) int leaseSeconds,
             @ToolParam(description = "Trace identifier for audit events", required = true) String traceId) {
         ClaimStepService.ClaimedStep claimed = claimStepService.claim(new ClaimStepCommand(uuid(taskId), workerId, leaseSeconds, traceId));
@@ -216,6 +230,12 @@ public class DurableRuntimeMcpTools {
     }
 
     public record TaskCreated(String taskId) { }
+    public record ActiveTask(String taskId, String goal, String status, String currentStepId, String updatedAt) {
+        static ActiveTask from(Task task) {
+            return new ActiveTask(task.id().toString(), task.goal(), task.status().name(),
+                    task.currentStepId() == null ? null : task.currentStepId().toString(), task.updatedAt().toString());
+        }
+    }
     public record TaskStarted(String taskId) { }
     public record ClaimedStep(String stepId, String stepName, String stepType, String leaseToken,
                               String leaseExpiresAt, int attempt) { }

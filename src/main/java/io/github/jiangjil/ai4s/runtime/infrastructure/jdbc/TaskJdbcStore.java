@@ -32,6 +32,13 @@ public class TaskJdbcStore implements TaskStore {
             SELECT id, goal, status, current_step_id, version, created_at, updated_at
             FROM task WHERE id = ?
             """;
+    private static final String FIND_ACTIVE_TASKS = """
+            SELECT id, goal, status, current_step_id, version, created_at, updated_at
+            FROM task
+            WHERE status IN ('CREATED', 'RUNNING', 'WAITING', 'PAUSED')
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """;
     private static final String FIND_STEPS = """
             SELECT id, task_id, ordinal, step_type, step_name, status, input_json, output_json, error_json, checkpoint_uri,
                    attempt, max_attempts, resume_mode, next_retry_at, worker_id, lease_token, lease_expires_at, claimed_at,
@@ -87,12 +94,13 @@ public class TaskJdbcStore implements TaskStore {
 
     @Override
     public Optional<Task> findTask(UUID taskId) {
-        return jdbcTemplate.query(FIND_TASK, (resultSet, rowNumber) -> new Task(
-                UUID.fromString(resultSet.getString("id")), resultSet.getString("goal"),
-                io.github.jiangjil.ai4s.runtime.domain.TaskStatus.valueOf(resultSet.getString("status")),
-                nullableUuid(resultSet.getString("current_step_id")), resultSet.getLong("version"),
-                resultSet.getTimestamp("created_at").toInstant(), resultSet.getTimestamp("updated_at").toInstant()), taskId.toString())
+        return jdbcTemplate.query(FIND_TASK, (resultSet, rowNumber) -> mapTask(resultSet), taskId.toString())
                 .stream().findFirst();
+    }
+
+    @Override
+    public List<Task> findActiveTasks(int limit) {
+        return jdbcTemplate.query(FIND_ACTIVE_TASKS, (resultSet, rowNumber) -> mapTask(resultSet), limit);
     }
 
     @Override
@@ -138,6 +146,14 @@ public class TaskJdbcStore implements TaskStore {
                 resultSet.getString("lease_token"), nullableInstant(resultSet.getTimestamp("lease_expires_at")),
                 nullableInstant(resultSet.getTimestamp("claimed_at")), resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant());
+    }
+
+    /** 从任务账本还原聚合根；当前状态只来自这一结构化记录。 */
+    private Task mapTask(java.sql.ResultSet resultSet) throws java.sql.SQLException {
+        return new Task(UUID.fromString(resultSet.getString("id")), resultSet.getString("goal"),
+                io.github.jiangjil.ai4s.runtime.domain.TaskStatus.valueOf(resultSet.getString("status")),
+                nullableUuid(resultSet.getString("current_step_id")), resultSet.getLong("version"),
+                resultSet.getTimestamp("created_at").toInstant(), resultSet.getTimestamp("updated_at").toInstant());
     }
 
     private String serialize(java.util.Map<String, Object> value) {
